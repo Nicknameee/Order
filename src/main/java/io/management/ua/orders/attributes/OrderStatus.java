@@ -1,6 +1,6 @@
 package io.management.ua.orders.attributes;
 
-import io.management.ua.utility.models.Locale;
+import io.management.ua.utility.enums.Locale;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
