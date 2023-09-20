@@ -6,9 +6,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @Slf4j
-public class Main {
+public class Order {
     public static void main(String[] args) {
         log.debug("Order service started");
-        SpringApplication.run(Main.class);
+        SpringApplication.run(Order.class);
     }
 }

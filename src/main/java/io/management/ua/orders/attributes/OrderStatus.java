@@ -4,6 +4,8 @@ import io.management.ua.utility.enums.Locale;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,9 +25,36 @@ public enum OrderStatus {
 
     private final Map<Locale, String> statusDescriptions;
 
-    public static final Set<OrderStatus> prepaymentTransitionChain = Set.of(INITIATED, WAITING_FOR_PAYMENT, PAID, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
-    public static final Set<OrderStatus> CODTransitionChain = Set.of(INITIATED, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
+    public static final List<OrderStatus> prepaymentTransitionChain = List.of(INITIATED, WAITING_FOR_PAYMENT, PAID, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
+    public static final List<OrderStatus> CODTransitionChain = List.of(INITIATED, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
 
     public static final Set<OrderStatus> completedStatus = Set.of(DECLINED, RECEIVED, RETURNED);
 
+    public static boolean checkTransitionRule(OrderStatus previousStatus, OrderStatus status, boolean prepaid) {
+        if (prepaid) {
+            Iterator<OrderStatus> prepaidIterator = prepaymentTransitionChain.iterator();
+
+            while (prepaidIterator.hasNext()) {
+                if (prepaidIterator.next() == previousStatus) {
+                    if (prepaidIterator.hasNext()) {
+                        return (prepaidIterator.next() == status);
+                    }
+                }
+            }
+
+            return false;
+        } else {
+            Iterator<OrderStatus> codIterator = CODTransitionChain.iterator();
+
+            while (codIterator.hasNext()) {
+                if (codIterator.next() == previousStatus) {
+                    if (codIterator.hasNext()) {
+                        return (codIterator.next() == status);
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 }
