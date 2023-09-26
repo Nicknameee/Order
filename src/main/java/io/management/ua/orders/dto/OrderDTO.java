@@ -28,6 +28,7 @@ public class OrderDTO {
     @Min(value = 1, message = "Invalid ID value")
     private Long customerId;
     private Long processingOperatorId;
+    private Boolean paid;
     @NotNull(message = "Order must have products")
     @Size(min = 1, message = "Order must have at least one ordered product")
     private List<OrderedProductDTO> orderedProducts;

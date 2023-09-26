@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import javax.persistence.EntityManager;
 import javax.persistence.criteria.*;
 import javax.transaction.Transactional;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -107,8 +108,12 @@ public class OrderService {
     public OrderModel saveOrder(OrderDTO orderDTO) {
         OrderModel orderModel = orderMapper.dtoToEntity(orderDTO);
 
+        BigDecimal productCost = productService.calculateProductsTotalCost(orderDTO.getOrderedProducts());
+
+        orderModel.setTotalProductCost(productCost);
         orderModel = orderRepository.save(orderModel);
 
+        productService.clearOrderedProducts(orderModel.getId());
         productService.orderProducts(orderDTO.getOrderedProducts(), orderModel.getId());
 
         return orderModel;
@@ -124,4 +129,6 @@ public class OrderService {
             throw new ActionRestrictedException(String.format("Order can not be transferred to the status named: %s", nextStatus));
         }
     }
+
+
 }

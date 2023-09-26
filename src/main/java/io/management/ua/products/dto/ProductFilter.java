@@ -9,11 +9,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductFilter {
-    private String category;
+    private Long categoryId;
     private String brand;
-    private String name;
+    private String productName;
     @JsonProperty("price_from")
     private int priceFrom;
     @JsonProperty("price_to")
     private int priceTo = Integer.MAX_VALUE;
+    private boolean isPresent;
 }

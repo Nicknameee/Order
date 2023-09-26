@@ -1,12 +1,14 @@
 package io.management.ua.category.entity;
 
 import lombok.Data;
+import lombok.experimental.FieldNameConstants;
 
 import javax.persistence.*;
 
 @Data
 @Entity
 @Table(name = "category")
+@FieldNameConstants
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
