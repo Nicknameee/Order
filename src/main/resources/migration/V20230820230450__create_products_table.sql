@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS products(
     id BIGSERIAL PRIMARY KEY,
     product_name VARCHAR,
-    product_characteristics JSONB, -- Product characteristics
+    product_characteristics JSONB,
     product_description VARCHAR,
     vendor_id UUID REFERENCES vendors(id),
     product_id UUID UNIQUE,

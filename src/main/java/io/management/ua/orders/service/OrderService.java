@@ -129,6 +129,4 @@ public class OrderService {
             throw new ActionRestrictedException(String.format("Order can not be transferred to the status named: %s", nextStatus));
         }
     }
-
-
 }
