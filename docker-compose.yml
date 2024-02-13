@@ -25,6 +25,7 @@ services:
       - REDIS_HOST_INFRASTRUCTURE=redis
       - REDIS_PORT_INFRASTRUCTURE=6379
       - REDIS_DATABASE_INFRASTRUCTURE=0
+      - REDIS_DATABASE_PASSWORD=1904
       - NOVA_POST_HOST=https://api.novaposhta.ua/v2.0/json/
       - NOVA_POST_TOKEN=07e4a86cc0f63f9ee4867b58c2034c5b
     networks:
