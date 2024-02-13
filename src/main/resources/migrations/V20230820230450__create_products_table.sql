@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS products(
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR,
+    parameters JSON,
+    description VARCHAR,
+    vendor_id UUID REFERENCES vendors(id), --IF NULL THEN VENDOR CONSIDERED AS CRM OWNER
+    product_id UUID UNIQUE,
+    cost FLOAT DEFAULT 0 NOT NULL CHECK (cost >= 0),
+    items_left INTEGER CHECK (items_left >= 0), --NUMBER OF PRODUCTS AVAILABLE FOR SALE
+    blocked BOOLEAN DEFAULT FALSE NOT NULL, --IF TRUE THAN PRODUCT CAN NOT BE BOUGHT
+    category_id INTEGER REFERENCES categories(id)
+)
