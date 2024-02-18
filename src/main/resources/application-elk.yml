@@ -1,0 +1,4 @@
+logging:
+  level:
+    io.management: DEBUG
+  config: classpath:logback-configuration.xml

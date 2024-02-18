@@ -17,7 +17,7 @@ RUN mvn dependency:go-offline --settings settings.xml
 COPY src ./src
 
 # Build the application
-RUN mvn clean install -U
+RUN mvn clean install -U --settings settings.xml
 
 # Expose the port that the application will run on
 EXPOSE 9003
