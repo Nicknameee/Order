@@ -29,6 +29,7 @@ services:
       - NOVA_POST_HOST=https://api.novaposhta.ua/v2.0/json/
       - NOVA_POST_TOKEN=07e4a86cc0f63f9ee4867b58c2034c5b
       - EUREKA_SERVER_URL=http://user:user@setting:8888/eureka
+      - EUREKA_INSTANCE_ID=host.docker.internal:9015
       - LOGSTASH_URL=logstash:5000
     networks:
       - crm
