@@ -5,16 +5,23 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductFilter {
-    private Long categoryId;
-    private String brand;
-    private String productName;
+    private String name;
+    private Map<String, String> characteristics;
+    private UUID vendorId;
+    private List<UUID> productIds;
     @JsonProperty("price_from")
-    private int priceFrom;
+    private Integer priceFrom;
     @JsonProperty("price_to")
-    private int priceTo = Integer.MAX_VALUE;
-    private boolean isPresent;
+    private Integer priceTo;
+    private Boolean isPresent;
+    private Boolean isBlocked;
+    private Long categoryId;
 }

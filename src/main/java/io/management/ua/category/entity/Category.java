@@ -17,4 +17,6 @@ public class Category {
     private String name;
     @Column(name = "parent_category_id")
     private Long parentCategoryId;
+    @Column(name = "picture_url")
+    private String pictureUrl;
 }

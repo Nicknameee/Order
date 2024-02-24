@@ -23,16 +23,16 @@ public class ProductController {
         return Response.ok(productService.getProducts(productFilter, page, size));
     }
 
-    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRoles).ROLE_MANAGER)")
+    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
     @PostMapping("/save")
     public Response<?> saveProduct(@RequestBody @Valid ProductDTO productDTO) {
         return Response.ok(productService.saveProduct(productDTO));
     }
 
-    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRoles).ROLE_MANAGER)")
+    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
     @PostMapping("/remove")
     public Response<?> removeProduct(@RequestParam("product_id") Long productId) {
-        productService.removeProduct(productId);
+        productService.disableProduct(productId);
         return Response.ok();
     }
 }

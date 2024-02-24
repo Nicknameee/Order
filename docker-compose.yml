@@ -11,25 +11,38 @@ services:
     ports:
       - "9015:9015"
     environment:
+      # Spring profiles active (elk is for enabling logging to Logstash)
       - SPRING_PROFILES_ACTIVE=default,native,dev,elk
+      # Spring Security credentials
       - SPRING_SECURITY_USER_NAME=user
       - SPRING_SECURITY_USER_PASSWORD=user
-      - SPRING_CLOUD_CONFIG_URI=http://user:user@settings:8888/cloud
+      # Spring Cloud configuration service host protocol://springSecurityUser:springSecurityPassword@containerName:port
+      - SPRING_CLOUD_CONFIG_URI=http://user:user@settings:8888
+      # Apache Kafka host containerName:port
+      - KAFKA_URL=kafka:9092
+      # Service's DB
       - DB_PASSWORD=1904
       - DB_URL=jdbc:postgresql://postgres:5432/orders
       - DB_USERNAME=postgres
-      - KAFKA_URL=kafka:9092
+      # User information DB (mandatory for correct auth logic)
       - USER_READER_DB_PASSWORD=1904
       - USER_READER_DB_URL=jdbc:postgresql://postgres:5432/users
       - USER_READER_DB_USERNAME=users_reader
+      # User's blacklisted tokens cache
       - REDIS_HOST_INFRASTRUCTURE=redis
       - REDIS_PORT_INFRASTRUCTURE=6379
       - REDIS_DATABASE_INFRASTRUCTURE=0
-      - REDIS_DATABASE_PASSWORD=1904
+      - REDIS_PASSWORD_INFRASTRUCTURE=1904
+      # Eureka SD host
+      - EUREKA_CLIENT_SERVICE_URL=http://user:user@discovery:8889/eureka
+      # Eureka SD registering instance ID (displayed name)
+      - EUREKA_INSTANCE_ID=Order:9015
+      # Eureka SD registering host (on which host registered service will be available)
+      - EUREKA_HOSTNAME=host.docker.internal
+      # ELK logs receiver host containerName:port
+      - LOGSTASH_URL=logstash:5000
+      # Nova Post API credentials
       - NOVA_POST_HOST=https://api.novaposhta.ua/v2.0/json/
       - NOVA_POST_TOKEN=07e4a86cc0f63f9ee4867b58c2034c5b
-      - EUREKA_SERVER_URL=http://user:user@setting:8888/eureka
-      - EUREKA_INSTANCE_ID=host.docker.internal:9015
-      - LOGSTASH_URL=logstash:5000
     networks:
       - crm

@@ -30,26 +30,29 @@ public enum OrderStatus {
 
     public static final Set<OrderStatus> completedStatus = Set.of(DECLINED, RECEIVED, RETURNED);
 
-    public static boolean checkTransitionRule(OrderStatus previousStatus, OrderStatus status, boolean prepaid) {
-        if (prepaid) {
-            Iterator<OrderStatus> prepaidIterator = prepaymentTransitionChain.iterator();
+    public static boolean checkTransitionRule(OrderStatus previousStatus, OrderStatus status, PaymentType paymentType) {
+        switch (paymentType) {
+            case PREPAYMENT -> {
+                Iterator<OrderStatus> prepaidIterator = prepaymentTransitionChain.iterator();
 
-            while (prepaidIterator.hasNext()) {
-                if (prepaidIterator.next() == previousStatus) {
-                    if (prepaidIterator.hasNext()) {
-                        return (prepaidIterator.next() == status);
+                while (prepaidIterator.hasNext()) {
+                    if (prepaidIterator.next() == previousStatus) {
+                        if (prepaidIterator.hasNext()) {
+                            return (prepaidIterator.next() == status);
+                        }
                     }
                 }
+
+                return false;
             }
+            case COD -> {
+                Iterator<OrderStatus> codIterator = CODTransitionChain.iterator();
 
-            return false;
-        } else {
-            Iterator<OrderStatus> codIterator = CODTransitionChain.iterator();
-
-            while (codIterator.hasNext()) {
-                if (codIterator.next() == previousStatus) {
-                    if (codIterator.hasNext()) {
-                        return (codIterator.next() == status);
+                while (codIterator.hasNext()) {
+                    if (codIterator.next() == previousStatus) {
+                        if (codIterator.hasNext()) {
+                            return (codIterator.next() == status);
+                        }
                     }
                 }
             }

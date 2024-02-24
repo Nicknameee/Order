@@ -21,13 +21,13 @@ public class CategoryController {
         return Response.ok(categoryService.getAllCategories());
     }
 
-    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRoles).ROLE_MANAGER)")
+    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
     @PostMapping("/save")
     public Response<?> saveCategory(@RequestBody @Valid CategoryDTO categoryDTO) {
         return Response.ok(categoryService.saveCategory(categoryDTO));
     }
 
-    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRoles).ROLE_MANAGER)")
+    @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
     @DeleteMapping("/remove")
     public Response<?> removeCategory(@RequestParam("category_id") Long categoryId) {
         categoryService.deleteCategory(categoryId);
