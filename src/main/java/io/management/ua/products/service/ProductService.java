@@ -1,6 +1,6 @@
 package io.management.ua.products.service;
 
-import io.management.ua.annotations.DefaultValue;
+import io.management.ua.annotations.DefaultStringValue;
 import io.management.ua.category.entity.Category;
 import io.management.ua.products.dto.OrderedProductDTO;
 import io.management.ua.products.dto.ProductDTO;
@@ -12,6 +12,7 @@ import io.management.ua.utility.ResourceLoaderUtil;
 import io.management.ua.utility.Scripts;
 import io.netty.util.internal.StringUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.util.Pair;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -34,24 +35,24 @@ public class ProductService {
     private final JdbcTemplate jdbcTemplate;
 
     public List<ProductModel> getProducts(@NotNull ProductFilter productFilter,
-                                          @DefaultValue("1") Integer page,
-                                          @DefaultValue("1") Integer size) {
+                                          @DefaultStringValue(string = "1") Integer page,
+                                          @DefaultStringValue(string = "1") Integer size) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<ProductModel> query = criteriaBuilder.createQuery(ProductModel.class);
         Root<ProductModel> root = query.from(ProductModel.class);
 
         List<Predicate> predicates = new ArrayList<>();
 
-        if (productFilter.getCategoryId() != null) {
-            predicates.add(criteriaBuilder.equal(root.get(ProductModel.Fields.category).get(Category.Fields.id), productFilter.getCategoryId()));
+        if (!StringUtil.isNullOrEmpty(productFilter.getName())) {
+            predicates.add(criteriaBuilder.like(root.get(ProductModel.Fields.name), "%" + productFilter.getName() + "%"));
         }
 
-        if (!StringUtil.isNullOrEmpty(productFilter.getBrand())) {
-            predicates.add(criteriaBuilder.equal(root.get(ProductModel.Fields.brand), productFilter.getBrand()));
+        if (productFilter.getVendorId() != null) {
+            predicates.add(criteriaBuilder.equal(root.get(ProductModel.Fields.vendorId), productFilter.getVendorId()));
         }
 
-        if (!StringUtil.isNullOrEmpty(productFilter.getProductName())) {
-            predicates.add(criteriaBuilder.like(root.get(ProductModel.Fields.productName), "%" + productFilter.getProductName() + "%"));
+        if (productFilter.getProductIds() != null && !productFilter.getProductIds().isEmpty()) {
+            predicates.add(root.get(ProductModel.Fields.productId).in(productFilter.getProductIds()));
         }
 
         if (productFilter.getPriceFrom() > 0) {
@@ -62,10 +63,25 @@ public class ProductService {
             predicates.add(criteriaBuilder.le(root.get(ProductModel.Fields.cost), productFilter.getPriceTo()));
         }
 
-        if (productFilter.isPresent()) {
-            predicates.add(criteriaBuilder.greaterThan(root.get(ProductModel.Fields.itemsLeft), 0));
-        } else {
-            predicates.add(criteriaBuilder.le(root.get(ProductModel.Fields.itemsLeft), 0));
+        if (productFilter.getIsPresent() != null) {
+            if (productFilter.getIsPresent()) {
+                predicates.add(criteriaBuilder.greaterThan(root.get(ProductModel.Fields.itemsLeft), 0));
+            } else {
+                predicates.add(criteriaBuilder.le(root.get(ProductModel.Fields.itemsLeft), 0));
+            }
+        }
+
+        if (productFilter.getIsBlocked() != null) {
+            if (productFilter.getIsBlocked()) {
+                predicates.add(criteriaBuilder.isTrue(root.get(ProductModel.Fields.blocked)));
+            } else {
+                predicates.add(criteriaBuilder.isFalse(root.get(ProductModel.Fields.blocked)));
+            }
+        }
+
+        if (productFilter.getCategoryId() != null) {
+            predicates.add(criteriaBuilder.equal(root.get(ProductModel.Fields.category).get(Category.Fields.id),
+                    productFilter.getCategoryId()));
         }
 
         query.where(predicates.toArray(new Predicate[0]));
@@ -79,11 +95,11 @@ public class ProductService {
         return productRepository.save(productModel);
     }
 
-    public void orderProducts(List<OrderedProductDTO> orderedProducts, Long orderId) {
-        jdbcTemplate.batchUpdate(ResourceLoaderUtil.getResourceContent(Scripts.addOrderedProduct),
-                orderedProducts.stream()
-                        .map(orderedProductDTO -> new Object[]{orderId, orderedProductDTO.getId(), orderedProductDTO.getAmount()})
-                        .toList());
+    public Pair<ProductModel, Integer> orderProduct(OrderedProductDTO orderedProductDTO, Long orderId) {
+        jdbcTemplate.update(ResourceLoaderUtil.getResourceContent(Scripts.addOrderedProduct),
+                orderId, orderedProductDTO.getId(), orderedProductDTO.getAmount());
+
+        return Pair.of(productRepository.getReferenceById(orderedProductDTO.getId()), orderedProductDTO.getAmount());
     }
 
     public BigDecimal calculateProductsTotalCost(List<OrderedProductDTO> orderedProducts) {
@@ -101,7 +117,7 @@ public class ProductService {
         jdbcTemplate.update(ResourceLoaderUtil.getResourceContent(Scripts.clearOrderedProductsForOrder), orderId);
     }
 
-    public void removeProduct(Long productId) {
-        productRepository.deleteById(productId);
+    public void disableProduct(Long productId) {
+        productRepository.disableProduct(productId);
     }
 }
