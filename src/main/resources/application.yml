@@ -1,3 +1,5 @@
 spring:
   profiles:
-    active: default, native, dev, elk
+    active: default, native, dev
+  jpa:
+    show-sql: true

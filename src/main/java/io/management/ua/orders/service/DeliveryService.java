@@ -1,11 +1,11 @@
 package io.management.ua.orders.service;
 
 import io.management.ua.address.dto.OrderShipmentAddressDTO;
-import io.management.ua.products.entity.ProductModel;
+import io.management.ua.products.entity.Product;
 import io.management.ua.products.model.ProductDeliveryModel;
 import io.management.ua.products.model.ProductParameter;
 import io.management.ua.utility.api.enums.DeliveryServiceType;
-import io.management.ua.utility.api.np.service.NovaPostDeliveryService;
+import io.management.ua.utility.api.nova.post.service.NovaPostDeliveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 public class DeliveryService {
     private final NovaPostDeliveryService novaPostDeliveryService;
 
-    public BigDecimal getDeliveryCost(Pair<ProductModel, Integer> orderedProducts, DeliveryServiceType deliveryServiceType, OrderShipmentAddressDTO deliveryParameters) {
+    public BigDecimal getDeliveryCost(Pair<Product, Integer> orderedProducts, DeliveryServiceType deliveryServiceType, OrderShipmentAddressDTO deliveryParameters) {
         ProductDeliveryModel productDeliveryModel = processOrderedProductsForDelivery(orderedProducts);
 
         switch (deliveryServiceType) {
@@ -33,20 +33,20 @@ public class DeliveryService {
 
     }
 
-    private ProductDeliveryModel processOrderedProductsForDelivery(Pair<ProductModel, Integer> orderedProduct) {
-        ProductModel productModel = orderedProduct.getFirst();
+    private ProductDeliveryModel processOrderedProductsForDelivery(Pair<Product, Integer> orderedProduct) {
+        Product product = orderedProduct.getFirst();
         ProductDeliveryModel productDeliveryModel = new ProductDeliveryModel();
 
-        BigDecimal weight = (BigDecimal) productModel.getParameter(ProductParameter.WEIGHT);
-        BigDecimal width = (BigDecimal) productModel.getParameter(ProductParameter.WIDTH);
-        BigDecimal length = (BigDecimal) productModel.getParameter(ProductParameter.LENGTH);
-        BigDecimal height = (BigDecimal) productModel.getParameter(ProductParameter.HEIGHT);
+        BigDecimal weight = new BigDecimal(product.getParameter(ProductParameter.WEIGHT));
+        BigDecimal width = new BigDecimal(product.getParameter(ProductParameter.WIDTH));
+        BigDecimal length = new BigDecimal(product.getParameter(ProductParameter.LENGTH));
+        BigDecimal height = new BigDecimal(product.getParameter(ProductParameter.HEIGHT));
 
         productDeliveryModel.setWeight(weight);
         productDeliveryModel.setWidth(width);
         productDeliveryModel.setLength(length);
         productDeliveryModel.setHeight(height);
-        productDeliveryModel.setCost(productModel.getCost());
+        productDeliveryModel.setCost(product.getCost().multiply(BigDecimal.valueOf(orderedProduct.getSecond())));
 
         return productDeliveryModel;
     }

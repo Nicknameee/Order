@@ -1,5 +1,8 @@
 package io.management.ua.products.model;
 
-public enum ProductParameter {
-    HEIGHT, WIDTH, LENGTH, WEIGHT
+public class ProductParameter {
+    public static final String HEIGHT = "height";
+    public static final String WIDTH = "width";
+    public static final String LENGTH = "length";
+    public static final String WEIGHT = "weight";
 }

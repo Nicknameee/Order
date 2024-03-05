@@ -1,1 +1,0 @@
-INSERT INTO ordered_products(order_id, product_id, products_amount) VALUES(?, ?, ?)

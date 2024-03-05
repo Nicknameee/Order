@@ -18,7 +18,7 @@ public class CreateOrderDTO {
     private Long customerId;
     @NotNull(message = "Payment type must be specified")
     private PaymentType paymentType;
-    private Boolean paid;
+    private boolean paid;
     @NotNull(message = "Delivery type must be specified")
     private DeliveryServiceType deliveryServiceType;
     @NotNull(message = "Order must have products")

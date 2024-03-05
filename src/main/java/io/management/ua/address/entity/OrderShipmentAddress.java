@@ -1,8 +1,10 @@
 package io.management.ua.address.entity;
 
+import com.vladmihalcea.hibernate.type.json.JsonType;
 import io.management.ua.address.attributes.AddressPart;
-import io.management.ua.address.converter.JsonMapConverter;
 import lombok.Data;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
 import java.util.Map;
@@ -10,6 +12,7 @@ import java.util.Map;
 @Data
 @Entity
 @Table(name = "order_shipment_addresses")
+@TypeDef(name = "JSON", typeClass = JsonType.class)
 public class OrderShipmentAddress {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,7 +21,7 @@ public class OrderShipmentAddress {
     private Long orderId;
     @Column(name = "customer_id")
     private Long customerId;
-    @Convert(converter = JsonMapConverter.class)
-    @Column(name = "address")
+    @Type(type = "JSON")
+    @Column(name = "address", columnDefinition = "JSON")
     private Map<AddressPart, String> address;
 }

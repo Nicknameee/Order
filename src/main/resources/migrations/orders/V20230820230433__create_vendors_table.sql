@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS vendors(
+    id UUID PRIMARY KEY,
+    name VARCHAR UNIQUE NOT NULL,
+    joining_date TIMESTAMPTZ DEFAULT NOW(),
+    revoking_date TIMESTAMPTZ,
+    picture_url VARCHAR UNIQUE,
+    website VARCHAR UNIQUE,
+    phone VARCHAR UNIQUE,
+    email VARCHAR UNIQUE NOT NULL,
+    revoked BOOLEAN DEFAULT FALSE NOT NULL
+)

@@ -1,7 +1,7 @@
 package io.management.ua.controllers;
 
 import io.management.ua.response.Response;
-import io.management.ua.utility.api.np.service.NovaPostDeliveryService;
+import io.management.ua.utility.api.nova.post.service.NovaPostDeliveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;

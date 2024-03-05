@@ -26,7 +26,7 @@ public class OrderFilter {
     private Boolean paid;
     private ZonedDateTime lastChangedOrderDateFrom;
     private ZonedDateTime lastChangedOrderDateTo;
-    private List<Long> orderedProductIds;
+    private List<UUID> orderedProductIds;
     private List<String> productNames;
     private List<UUID> vendorIds;
 }

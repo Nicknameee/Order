@@ -25,12 +25,16 @@ public enum OrderStatus {
 
     private final Map<Locale, String> statusDescriptions;
 
-    public static final List<OrderStatus> prepaymentTransitionChain = List.of(INITIATED, WAITING_FOR_PAYMENT, PAID, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
+    public static final List<OrderStatus> prepaymentTransitionChain = List.of(INITIATED, PAID, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
     public static final List<OrderStatus> CODTransitionChain = List.of(INITIATED, ASSIGNED_TO_OPERATOR, SHIPPED, IN_DELIVERY_PROCESS, DELIVERED, RECEIVED);
 
     public static final Set<OrderStatus> completedStatus = Set.of(DECLINED, RECEIVED, RETURNED);
 
     public static boolean checkTransitionRule(OrderStatus previousStatus, OrderStatus status, PaymentType paymentType) {
+        if (completedStatus.contains(status)) {
+            return true;
+        }
+
         switch (paymentType) {
             case PREPAYMENT -> {
                 Iterator<OrderStatus> prepaidIterator = prepaymentTransitionChain.iterator();

@@ -1,7 +1,7 @@
 package io.management.ua.orders.repository;
 
-import io.management.ua.orders.entity.OrderModel;
+import io.management.ua.orders.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface OrderRepository extends JpaRepository<OrderModel, Long> {
+public interface OrderRepository extends JpaRepository<Order, Long> {
 }

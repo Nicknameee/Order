@@ -1,1 +1,0 @@
-DELETE FROM ordered_products WHERE order_id = ?;
