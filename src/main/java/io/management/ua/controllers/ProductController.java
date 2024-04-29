@@ -20,11 +20,18 @@ import java.util.UUID;
 public class ProductController {
     private final ProductService productService;
 
-    @GetMapping("/allowed")
-    public Response<?> getProducts(@RequestParam(value = "page", required = false) Integer page,
-                                   @RequestParam(value = "size", required = false) Integer size,
+    @GetMapping("/search/allowed")
+    public Response<?> getProductLinksByNamePartial(@RequestParam String searchBy, @RequestParam(required = false) Integer page) {
+        return Response.ok(productService.getProductLinksByNamePartial(searchBy, page));
+    }
+
+    @PostMapping("/allowed")
+    public Response<?> getProducts(@RequestParam(required = false) Integer page,
+                                   @RequestParam(required = false) Integer size,
+                                   @RequestParam(required = false) String sortBy,
+                                   @RequestParam(required = false) String direction,
                                    @RequestBody ProductFilter productFilter) {
-        return Response.ok(productService.getProducts(productFilter, page, size));
+        return Response.ok(productService.getProducts(productFilter, page, size, sortBy, direction));
     }
 
     @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
@@ -60,5 +67,25 @@ public class ProductController {
                                   @RequestParam(required = false) String filename,
                                   HttpServletResponse httpServletResponse) {
         productService.exportProducts(vendorFilter, filename, httpServletResponse);
+    }
+
+    @GetMapping("/amount/available")
+    public Response<?> getProductAmount(@RequestParam UUID productId) {
+        return Response.ok(productService.getProductAmount(productId));
+    }
+
+    @GetMapping("/waiting/list")
+    public Response<?> getWaitingList(@RequestParam Long customerId) {
+        return Response.ok(productService.getWaitingList(customerId));
+    }
+
+    @PostMapping("/waiting/list")
+    public Response<?> addProductToWaitingList(@RequestParam Long customerId, @RequestParam UUID productId) {
+        return Response.ok(productService.addProductToWaitingList(customerId, productId));
+    }
+
+    @DeleteMapping("/waiting/list")
+    public Response<?> removeProductFromWaitingList(@RequestParam Long customerId, @RequestParam UUID productId) {
+        return Response.ok(productService.removeProductFromWaitingList(customerId, productId));
     }
 }

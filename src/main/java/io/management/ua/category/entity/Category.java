@@ -1,5 +1,6 @@
 package io.management.ua.category.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.experimental.FieldNameConstants;
 
@@ -24,4 +25,8 @@ public class Category {
     private String pictureUrl;
     @Column(name = "enabled")
     private Boolean enabled;
+
+    @Transient
+    @JsonIgnore
+    public static final String CACHE = "categoryCache";
 }

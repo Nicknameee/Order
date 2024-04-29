@@ -3,12 +3,17 @@ package io.management.ua.products.service;
 import io.management.resources.models.Image;
 import io.management.resources.service.ImageHostingService;
 import io.management.ua.annotations.DefaultNumberValue;
+import io.management.ua.annotations.DefaultStringValue;
+import io.management.ua.category.repository.CategoryRepository;
 import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
+import io.management.ua.orders.entity.Order;
 import io.management.ua.products.dto.*;
 import io.management.ua.products.entity.Product;
+import io.management.ua.products.entity.WaitingListProduct;
 import io.management.ua.products.mapper.ProductMapper;
 import io.management.ua.products.repository.ProductRepository;
+import io.management.ua.products.repository.WaitingListProductRepository;
 import io.management.ua.utility.ExportUtil;
 import io.management.ua.utility.ResourceLoaderUtil;
 import io.management.ua.utility.Scripts;
@@ -20,6 +25,9 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.util.Pair;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -30,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Nullable;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -38,6 +47,7 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,12 +64,35 @@ public class ProductService {
     private final EntityManager entityManager;
     private final JdbcTemplate jdbcTemplate;
     private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
     private final ImageHostingService imageHostingService;
+    private final WaitingListProductRepository waitingListProductRepository;
 
-    public List<Product> getProducts(@NotNull @Valid ProductFilter productFilter,
+    public List<ProductLinkDTO> getProductLinksByNamePartial(String searchBy, @DefaultNumberValue Integer page) {
+        List<ProductLinkDTO> productLinks = new ArrayList<>();
+
+        Page<Product> productMatchesByNamePartial = productRepository.getProductsByNamePartial(searchBy.toLowerCase(), PageRequest.of(page, 10));
+
+        if (productMatchesByNamePartial.hasContent()) {
+            for (Product product : productMatchesByNamePartial.getContent()) {
+                ProductLinkDTO productLink = new ProductLinkDTO();
+                productLink.setProductName(product.getName());
+                productLink.setProductId(product.getProductId());
+                productLink.setCategoryName(categoryRepository.getCategoryNameByCategoryId(product.getCategoryId()));
+
+                productLinks.add(productLink);
+            }
+        }
+
+        return productLinks;
+    }
+
+    public List<Product> getProducts(@Nullable @Valid ProductFilter productFilter,
                                      @DefaultNumberValue Integer page,
-                                     @DefaultNumberValue(number = 100) Integer size) {
+                                     @DefaultNumberValue(number = 100) Integer size,
+                                     @DefaultStringValue(string = "cost") String sortBy,
+                                     @DefaultStringValue(string = "ASC") String direction) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Product> query = criteriaBuilder.createQuery(Product.class);
         Root<Product> root = query.from(Product.class);
@@ -114,6 +147,15 @@ public class ProductService {
 
         query.where(predicates.toArray(Predicate[]::new));
 
+        if (direction != null) {
+            switch (Sort.Direction.valueOf(direction)) {
+                case DESC -> query.orderBy(criteriaBuilder.desc(root.get(sortBy)));
+                case ASC -> query.orderBy(criteriaBuilder.asc(root.get(sortBy)));
+            }
+        } else {
+            query.orderBy(criteriaBuilder.desc(root.get(Order.Fields.creationDate)));
+        }
+
         return entityManager.createQuery(query).setFirstResult((page - 1) * size).setMaxResults(size).getResultList();
     }
 
@@ -136,7 +178,7 @@ public class ProductService {
             product.setBrand(updateProductDTO.getBrand());
         }
 
-        if (!updateProductDTO.getParameters().isEmpty()) {
+        if (updateProductDTO.getParameters() != null && !updateProductDTO.getParameters().isEmpty()) {
             Map<String, String> validParameters = new HashMap<>();
 
             for (Map.Entry<String, String> entry : updateProductDTO.getParameters().entrySet()) {
@@ -158,6 +200,10 @@ public class ProductService {
 
         if (updateProductDTO.getCost() != null && updateProductDTO.getCost().compareTo(BigDecimal.ZERO) > 0) {
             product.setCost(updateProductDTO.getCost());
+        }
+
+        if (updateProductDTO.getCurrency() != null) {
+            product.setCurrency(updateProductDTO.getCurrency());
         }
 
         if (updateProductDTO.getItemsLeft() != null && updateProductDTO.getItemsLeft() >= 0) {
@@ -265,7 +311,7 @@ public class ProductService {
             List<Product> products;
 
             do {
-                products = getProducts(productFilter, page, limitPerPage);
+                products = getProducts(productFilter, page, limitPerPage, null, null);
 
                 if (!products.isEmpty()) {
                     Row headerRow = sheet.createRow(0);
@@ -309,5 +355,49 @@ public class ProductService {
             log.error(e.getMessage(), e);
             throw new DefaultException("Exception occurred while exporting");
         }
+    }
+
+    public Long getProductAmount(UUID productId) {
+        if (productRepository.existsByProductId(productId)) {
+            throw new NotFoundException("Product with product ID {} was not found", productId);
+        }
+
+        Long amount = productRepository.getProductAmount(productId);
+
+        return amount == null ? 0 : amount;
+    }
+
+    public List<WaitingListProductDTO> getWaitingList(@NotNull(message = "Customer ID can not be null")
+                                                      @Min(value = 1, message = "Invalid customer ID")
+                                                      Long customerId) {
+        List<UUID> productIds = waitingListProductRepository.getProductIdsByCustomerId(customerId);
+
+        if (!productIds.isEmpty()) {
+            return productRepository.getWaitingListForCustomer(productIds);
+        } else {
+            return List.of();
+        }
+    }
+
+    public WaitingListProduct addProductToWaitingList(Long customerId, UUID productId) {
+        if (waitingListProductRepository.existsByCustomerIdAndProductId(customerId, productId)) {
+            throw new DefaultException("Product is already in waiting list...");
+        }
+
+        WaitingListProduct waitingListProduct = new WaitingListProduct();
+        waitingListProduct.setCustomerId(customerId);
+        waitingListProduct.setProductId(productId);
+
+        return waitingListProductRepository.save(waitingListProduct);
+    }
+
+    public boolean removeProductFromWaitingList(Long customerId, UUID productId) {
+        int numberOfAffectedEntries = waitingListProductRepository.removeWaitingListEntry(customerId, productId);
+
+        return numberOfAffectedEntries > 0;
+    }
+
+    public void orderProduct(Long orderId, Long productId, Integer productAmount) {
+        jdbcTemplate.update(ResourceLoaderUtil.getResourceContent(Scripts.addOrderedProductEntry), orderId, productId, productAmount);
     }
 }

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS products(
     vendor_id UUID REFERENCES vendors(id),
     product_id UUID UNIQUE,
     cost FLOAT DEFAULT 0 NOT NULL CHECK (cost >= 0),
+    currency VARCHAR NOT NULL,
     items_left INTEGER CHECK (items_left >= 0),
     blocked BOOLEAN DEFAULT FALSE NOT NULL,
     category_id UUID REFERENCES categories(category_id),

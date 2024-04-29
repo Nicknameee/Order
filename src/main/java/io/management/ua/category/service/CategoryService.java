@@ -46,7 +46,7 @@ public class CategoryService {
                                            @DefaultStringValue(string = "parentCategoryId") String sortBy,
                                            @DefaultStringValue(string = "ASC") String direction,
                                            Boolean enabled,
-                                           Long parentCategoryId) {
+                                           UUID parentCategoryId) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Category> query = criteriaBuilder.createQuery(Category.class);
         Root<Category> root = query.from(Category.class);
@@ -58,6 +58,8 @@ public class CategoryService {
 
         if (parentCategoryId != null) {
             predicates.add(criteriaBuilder.equal(root.get(Category.Fields.parentCategoryId), parentCategoryId));
+        } else {
+            predicates.add(criteriaBuilder.isNull(root.get(Category.Fields.parentCategoryId)));
         }
 
         query.where(predicates.toArray(new Predicate[0]));
@@ -109,7 +111,7 @@ public class CategoryService {
          Category category = categoryRepository.findByCategoryId(categoryId).orElseThrow(() -> new NotFoundException("Category with ID {} was not found", categoryId));
          category.setEnabled(state);
 
-        List<Category> childCategories = categoryRepository.getCategoriesByParentCategoryId(category.getId());
+        List<Category> childCategories = categoryRepository.getCategoriesByParentCategoryId(category.getCategoryId());
 
         if (!childCategories.isEmpty()) {
             childCategories.forEach(childCategory -> childCategory.setEnabled(state));
@@ -123,23 +125,19 @@ public class CategoryService {
     public void deleteCategory(UUID categoryId) {
         Category category = categoryRepository.findByCategoryId(categoryId).orElseThrow(() -> new NotFoundException("Category with ID {} was not found", categoryId));
 
-        List<Category> childCategories = categoryRepository.getCategoriesByParentCategoryId(category.getId());
+        List<Category> childCategories = categoryRepository.getCategoriesByParentCategoryId(category.getCategoryId());
 
         if (!childCategories.isEmpty()) {
             childCategories.forEach(childCategory -> childCategory.setParentCategoryId(null));
             categoryRepository.saveAll(childCategories);
         }
 
-        productRepository.detachProductsFromCategory(category.getId());
+        productRepository.detachProductsFromCategory(category.getCategoryId());
 
         categoryRepository.delete(category);
 
         if (category.getPictureUrl() != null) {
             imageHostingService.deleteImage(category.getPictureUrl());
         }
-    }
-
-    public boolean categoryExistsById(UUID categoryId) {
-        return categoryRepository.existsByCategoryId(categoryId);
     }
 }

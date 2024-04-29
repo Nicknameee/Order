@@ -10,6 +10,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 public class CreateOrderDTO {
@@ -25,4 +26,5 @@ public class CreateOrderDTO {
     @Size(min = 1, message = "Order must have at least one ordered product")
     private List<OrderedProductDTO> orderedProducts;
     private OrderShipmentAddressDTO orderShipmentAddress;
+    private UUID transactionId;
 }

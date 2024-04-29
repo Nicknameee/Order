@@ -21,6 +21,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -91,10 +93,12 @@ public class VendorService {
         return entityManager.createQuery(query).setFirstResult((page - 1) * size).setMaxResults(size).getResultList();
     }
 
+    @Cacheable(cacheNames = "vendorsCache", key = "#vendorId", sync = true)
     public Vendor getVendorById(UUID vendorId) {
         return vendorRepository.findById(vendorId).orElseThrow(() -> new NotFoundException("Vendor with ID {} was not found", vendorId));
     }
 
+    @CachePut(cacheNames = "vendorsCache", key = "#result.id")
     public Vendor saveVendor(@Valid CreateVendorDTO createVendorDTO) {
         Vendor vendor = vendorMapper.dtoToEntity(createVendorDTO);
         vendor.setRevoked(false);
@@ -102,6 +106,7 @@ public class VendorService {
         return vendorRepository.save(vendor);
     }
 
+    @CachePut(cacheNames = "vendorsCache", key = "#vendorId")
     public Vendor setVendorPicture(UUID vendorId, MultipartFile picture) {
         Vendor vendor = vendorRepository.findById(vendorId).orElseThrow(() -> new NotFoundException("Vendor with ID {} was not found", vendorId));
 
@@ -119,6 +124,7 @@ public class VendorService {
     }
 
     @Transactional
+    @CachePut(cacheNames = "vendorsCache", key = "#result.id")
     public Vendor updateVendor(@Valid UpdateVendorDTO updateVendorDTO) {
         Vendor vendor = vendorRepository.findById(updateVendorDTO.getVendorId()).orElseThrow(() -> new NotFoundException("Vendor with ID {} was not found", updateVendorDTO.getVendorId()));
 
@@ -137,7 +143,7 @@ public class VendorService {
         if (updateVendorDTO.isRevoke() && vendor.getRevokingDate() == null) {
             vendor.setRevoked(true);
             vendor.setRevokingDate(TimeUtil.getCurrentDateTime());
-            productRepository.blockVendorsProducts(vendor.getId());
+            productRepository.blockVendorProducts(vendor.getId());
         } else if (!updateVendorDTO.isRevoke() && vendor.getRevokingDate() != null) {
             vendor.setRevoked(false);
             vendor.setRevokingDate(null);
@@ -145,10 +151,6 @@ public class VendorService {
         }
 
         return vendorRepository.save(vendor);
-    }
-
-    public boolean vendorExistsById(UUID id) {
-        return vendorRepository.existsById(id);
     }
 
     public void exportVendors(VendorFilter vendorFilter, String filename, HttpServletResponse httpServletResponse) {

@@ -1,5 +1,21 @@
 spring:
   profiles:
-    active: default, native, dev
+    active: ${SPRING_PROFILES_ACTIVE:default, native, dev}
   jpa:
     show-sql: true
+api:
+  payment:
+    data-trans:
+      merchant-id: 1110016517
+      acquiring-currency: USD
+      sign: 240324014809242926
+      password: yHUDU2wt7rBrP6vt
+      authorization:
+        api-version: 5
+        api-url: https://api.sandbox.datatrans.com/upp/jsp/XML_authorize.jsp
+      payment:
+        api-version: 2
+        api-url: https://api.sandbox.datatrans.com/upp/jsp/XML_processor.jsp
+logging:
+  level:
+    root: debug

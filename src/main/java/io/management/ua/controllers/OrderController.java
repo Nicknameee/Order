@@ -15,7 +15,8 @@ import javax.servlet.http.HttpServletResponse;
 @RequiredArgsConstructor
 public class OrderController {
     private final OrderService orderService;
-    @GetMapping
+
+    @PostMapping
     public Response<?> getOrders(@RequestParam(required = false) Integer page,
                                  @RequestParam(required = false) Integer size,
                                  @RequestParam(required = false) String sortBy,
@@ -24,6 +25,14 @@ public class OrderController {
         return Response.ok(orderService.getOrders(orderFilter, page, size, sortBy, direction));
     }
 
+    @PostMapping("/complete")
+    public Response<?> getCompleteOrdersData(@RequestParam(required = false) Integer page,
+                                 @RequestParam(required = false) Integer size,
+                                 @RequestParam(required = false) String sortBy,
+                                 @RequestParam(required = false) String direction,
+                                 @RequestBody(required = false) OrderFilter orderFilter) {
+        return Response.ok(orderService.getCustomersCompleteOrdersData(orderFilter, page, size, sortBy, direction));
+    }
     @PostMapping("/save")
     public Response<?> saveOrder(@RequestBody CreateOrderDTO createOrderDTO) {
         return Response.ok(orderService.saveOrder(createOrderDTO));
@@ -34,7 +43,7 @@ public class OrderController {
         return Response.ok(orderService.updateOrder(updateOrderDTO));
     }
 
-    @GetMapping("/history")
+    @PostMapping("/history")
     public Response<?> getOrderHistory(@RequestParam(required = false) Integer page,
                                        @RequestParam(required = false) Integer size,
                                        @RequestParam(required = false) String sortBy,
@@ -48,5 +57,12 @@ public class OrderController {
                                 @RequestParam(required = false) String filename,
                                 HttpServletResponse httpServletResponse) {
         orderService.exportOrders(orderFilter, filename, httpServletResponse);
+    }
+
+    @GetMapping("/export/history")
+    public void exportOrderHistoryData(@RequestBody(required = false) OrderFilter orderFilter,
+                                       @RequestParam(required = false) String filename,
+                                       HttpServletResponse httpServletResponse) {
+        orderService.exportOrderHistory(orderFilter, filename, httpServletResponse);
     }
 }

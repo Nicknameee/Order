@@ -11,5 +11,6 @@ CREATE TABLE IF NOT EXISTS orders(
     paid BOOLEAN DEFAULT FALSE NOT NULL,
     last_update_date TIMESTAMPTZ,
     delivery_service_type VARCHAR NOT NULL,
-    address_id BIGINT REFERENCES order_shipment_addresses(id)
+    address_id BIGINT REFERENCES order_shipment_addresses(id),
+    transaction_id UUID REFERENCES transactions(id)
 )

@@ -21,6 +21,7 @@ import io.management.ua.utility.network.NetworkService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ import java.math.RoundingMode;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -44,12 +46,19 @@ public class NovaPostDeliveryService {
     @Value("${api.delivery.nova.host}")
     private String host;
 
+    @Cacheable(cacheNames = "novaPostDeliveryCostCache", key = "#productDeliveryModel.width + " +
+            "#productDeliveryModel.length + " +
+            "#productDeliveryModel.weight + " +
+            "#productDeliveryModel.height +" +
+            "#deliveryParameters.address.get(T(io.management.ua.address.attributes.AddressPart).CITY_SENDER) +" +
+            "#deliveryParameters.address.get(T(io.management.ua.address.attributes.AddressPart).CITY_RECIPIENT)",
+    condition = "#result != null && #result.doubleValue() > 0")
     public BigDecimal calculateDeliveryCost(ProductDeliveryModel productDeliveryModel, OrderShipmentAddressDTO deliveryParameters) {
         BigInteger shipmentSeats = calculateShipmentSeats(productDeliveryModel.getWeight(),
                 productDeliveryModel.getHeight(),
                 productDeliveryModel.getLength(),
                 productDeliveryModel.getWidth(),
-                NPDepartmentType.valueOf(deliveryParameters.getAddress().get(AddressPart.POST_DEPARTMENT_TYPE_RECIPIENT)));
+                NPDepartmentType.byId(UUID.fromString(deliveryParameters.getAddress().get(AddressPart.POST_DEPARTMENT_ID_RECIPIENT))));
 
         GeneralRequestModel<GetDocumentPriceModel> requestBody =
                 getGetDocumentPriceModelGeneralRequestModel(productDeliveryModel, deliveryParameters, shipmentSeats);
@@ -178,6 +187,7 @@ public class NovaPostDeliveryService {
         throw new RuntimeException("Unknown department type");
     }
 
+    @Cacheable(cacheNames = "novaPostCityRefCache", key = "#cityName")
     public String getCityRef(String cityName) {
         if (cityName == null
                 || cityName.isEmpty()

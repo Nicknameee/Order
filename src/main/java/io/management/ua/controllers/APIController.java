@@ -24,8 +24,8 @@ public class APIController {
     }
 
     @GetMapping("/post/nova/warehouses")
-    public Response<?> getWarehouses(@RequestParam(required = false) String cityName,
-                                     @RequestParam String findByString,
+    public Response<?> getWarehouses(@RequestParam String cityName,
+                                     @RequestParam(required = false) String findByString,
                                      @RequestParam(required = false) Integer page,
                                      @RequestParam(required = false) Integer limit) {
         return Response.ok(novaPostDeliveryService.getWarehouses(cityName, findByString, page, limit));

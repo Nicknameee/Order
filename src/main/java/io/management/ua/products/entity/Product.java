@@ -2,6 +2,7 @@ package io.management.ua.products.entity;
 
 import com.vladmihalcea.hibernate.type.array.StringArrayType;
 import com.vladmihalcea.hibernate.type.json.JsonType;
+import io.management.ua.products.attributes.Currency;
 import lombok.Data;
 import lombok.experimental.FieldNameConstants;
 import org.hibernate.annotations.Type;
@@ -37,6 +38,9 @@ public class Product {
     private UUID productId;
     @Column(name = "cost")
     private BigDecimal cost;
+    @Column(name = "currency")
+    @Enumerated(EnumType.STRING)
+    private Currency currency;
     @Column(name = "items_left")
     private Integer itemsLeft;
     @Column(name = "blocked")

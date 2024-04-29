@@ -1,5 +1,6 @@
 package io.management.ua.products.dto;
 
+import io.management.ua.products.attributes.Currency;
 import lombok.Data;
 
 import javax.validation.constraints.DecimalMin;
@@ -21,6 +22,8 @@ public class CreateProductDTO {
     @NotNull(message = "Vendor for product must be specified")
     private UUID vendorId;
     private BigDecimal cost;
+    @NotNull(message = "Currency must be specified")
+    private Currency currency;
     @NotNull(message = "Items number can not be null")
     @Min(value = 0, message = "Items number can not be negative")
     private Integer itemsLeft;

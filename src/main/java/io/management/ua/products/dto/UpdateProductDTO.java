@@ -1,5 +1,6 @@
 package io.management.ua.products.dto;
 
+import io.management.ua.products.attributes.Currency;
 import lombok.Data;
 
 import javax.validation.constraints.NotNull;
@@ -17,6 +18,7 @@ public class UpdateProductDTO {
     private String description;
     private UUID vendorId;
     private BigDecimal cost;
+    private Currency currency;
     private Integer itemsLeft;
     private Boolean blocked;
     private UUID categoryId;

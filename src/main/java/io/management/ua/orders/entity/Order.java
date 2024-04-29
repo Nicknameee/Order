@@ -3,7 +3,7 @@ package io.management.ua.orders.entity;
 import io.management.ua.address.entity.OrderShipmentAddress;
 import io.management.ua.orders.attributes.OrderStatus;
 import io.management.ua.orders.attributes.PaymentType;
-import io.management.ua.products.entity.Product;
+import io.management.ua.products.entity.OrderedProduct;
 import io.management.ua.utility.TimeUtil;
 import io.management.ua.utility.api.enums.DeliveryServiceType;
 import lombok.Data;
@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Entity
@@ -28,7 +29,7 @@ public class Order {
     @Column(name = "delivery_cost")
     private BigDecimal deliveryCost = BigDecimal.ZERO;
     @Column(name = "number", unique = true)
-    private BigInteger number = BigInteger.valueOf(TimeUtil.getCurrentDate().getTime());
+    private BigInteger number = BigInteger.valueOf(TimeUtil.getCurrentDateTime().getNano());
     @Column(name = "ordered_products_cost")
     private BigDecimal orderedProductCost = BigDecimal.ZERO;
     @Column(name = "creation_date")
@@ -45,13 +46,15 @@ public class Order {
     private Boolean paid = false;
     @Column(name = "last_update_date")
     private ZonedDateTime lastUpdateDate;
-    @OneToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "ordered_products", inverseJoinColumns = @JoinColumn(name = "product_id"), joinColumns = @JoinColumn(name = "order_id"))
-    private List<Product> orderedProducts;
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    @JoinColumn(name = "order_id", referencedColumnName = "id")
+    private List<OrderedProduct> orderedProducts;
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "address_id")
     private OrderShipmentAddress shipmentAddress;
     @Column(name = "delivery_service_type")
     @Enumerated(EnumType.STRING)
     private DeliveryServiceType deliveryServiceType;
+    @Column(name = "transaction_id")
+    private UUID transactionId;
 }

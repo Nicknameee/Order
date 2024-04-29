@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS transactions(
+    id                             UUID PRIMARY KEY         NOT NULL,
+    customer_id                    BIGINT                   NOT NULL,
+    amount                         DECIMAL                  NOT NULL,
+    source_currency                VARCHAR                  NOT NULL,
+    acquiring_currency             VARCHAR                  NOT NULL,
+    reference                      BIGINT                   NOT NULL UNIQUE,
+    status                         VARCHAR                  NOT NULL,
+    issued_at                      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    merchant_id                    VARCHAR                  NOT NULL,
+    transaction_id                 VARCHAR,
+    authorization_code             VARCHAR,
+    acquire_authorization_code     VARCHAR,
+    transaction_processing_country VARCHAR,
+    transaction_type               VARCHAR,
+    transaction_alias              VARCHAR,
+    expiration                     VARCHAR,
+    pan                            VARCHAR,
+    settled_at                     TIMESTAMP WITH TIME ZONE
+);

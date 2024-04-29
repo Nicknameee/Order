@@ -12,25 +12,30 @@ import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
 import io.management.ua.orders.attributes.OrderStatus;
 import io.management.ua.orders.attributes.PaymentType;
-import io.management.ua.orders.dto.CreateOrderDTO;
-import io.management.ua.orders.dto.OrderFilter;
-import io.management.ua.orders.dto.OrderHistoryDTO;
-import io.management.ua.orders.dto.UpdateOrderDTO;
+import io.management.ua.orders.dto.*;
 import io.management.ua.orders.entity.Order;
 import io.management.ua.orders.mapper.OrderMapper;
 import io.management.ua.orders.repository.OrderRepository;
 import io.management.ua.products.dto.OrderedProductDTO;
 import io.management.ua.products.dto.ProductSaleStatisticEntry;
+import io.management.ua.products.entity.OrderedProduct;
 import io.management.ua.products.entity.Product;
 import io.management.ua.products.service.ProductService;
+import io.management.ua.transactions.dto.TransactionStateMessage;
+import io.management.ua.transactions.entity.Transaction;
+import io.management.ua.transactions.mapper.TransactionMapper;
+import io.management.ua.transactions.repository.TransactionRepository;
 import io.management.ua.utility.*;
 import io.management.ua.utility.api.enums.DeliveryServiceType;
+import io.management.users.service.UserDetailsImplementationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.util.Pair;
 import org.springframework.http.HttpHeaders;
@@ -49,6 +54,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.*;
 
 @Service
@@ -64,8 +70,12 @@ public class OrderService {
     private final ProductService productService;
     private final DeliveryService deliveryService;
     private final OrderShipmentAddressService orderShipmentAddressService;
+    private final UserDetailsImplementationService userDetailsImplementationService;
+    private final TransactionRepository transactionRepository;
+    private final TransactionMapper transactionMapper;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "ordersCache", key = "#result.id", condition = "#result.size() > 0")
     public List<Order> getOrders(OrderFilter orderFilter,
                                  @DefaultNumberValue Integer page,
                                  @DefaultNumberValue(number = 100) Integer size,
@@ -135,13 +145,13 @@ public class OrderService {
             }
 
             if (orderFilter.getOrderedProductIds() != null && !orderFilter.getOrderedProductIds().isEmpty()) {
-                Join<Order, List<Product>> joinProducts = root.join(Order.Fields.orderedProducts);
-                predicates.add(joinProducts.get(Product.Fields.productId).in(orderFilter.getOrderedProductIds()));
+                Join<Order, List<OrderedProduct>> joinProducts = root.join(Order.Fields.orderedProducts);
+                predicates.add(joinProducts.get(OrderedProduct.Fields.product).get(Product.Fields.productId).in(orderFilter.getOrderedProductIds()));
             }
 
             if (orderFilter.getProductNames() != null && !orderFilter.getProductNames().isEmpty()) {
-                Join<Order, List<Product>> joinProducts = root.join(Order.Fields.orderedProducts);
-                predicates.add(joinProducts.get(Product.Fields.name).in(orderFilter.getProductNames()));
+                Join<Order, List<OrderedProduct>> joinProducts = root.join(Order.Fields.orderedProducts);
+                predicates.add(joinProducts.get(OrderedProduct.Fields.product).get(Product.Fields.name).in(orderFilter.getProductNames()));
             }
 
             if (orderFilter.getVendorIds() != null && !orderFilter.getVendorIds().isEmpty()) {
@@ -164,7 +174,45 @@ public class OrderService {
         return entityManager.createQuery(query).setFirstResult((page - 1) * size).setMaxResults(size).getResultList();
     }
 
+    @Transactional
+    public List<CustomerOrderCompleteDataModel> getCustomersCompleteOrdersData(OrderFilter orderFilter,
+                                                                               @DefaultNumberValue Integer page,
+                                                                               @DefaultNumberValue(number = 100) Integer size,
+                                                                               @DefaultStringValue(string = Order.Fields.creationDate) String sortBy,
+                                                                               @DefaultStringValue(string = "DESC") String direction) {
+
+        List<Order> orders = getOrders(orderFilter, page, size, sortBy, direction);
+
+        List<CustomerOrderCompleteDataModel> customerOrderCompleteDataModels = new ArrayList<>();
+
+        orders.forEach(order -> {
+            TransactionStateMessage transactionStateMessage = null;
+
+            if (order.getTransactionId() != null) {
+                Transaction transaction = transactionRepository.findById(order.getTransactionId())
+                        .orElse(null);
+
+                if (transaction != null) {
+                    transactionStateMessage = transactionMapper.modelToStateMessage(transaction);
+                    transactionStateMessage.setAuthorized(transaction.getAuthorizationCode() != null);
+                    transactionStateMessage.setSettled(transaction.getSettledAt() != null);
+                }
+            }
+
+            CustomerOrder customerOrder = orderMapper.entityToCustomerOrder(order);
+
+            customerOrderCompleteDataModels.add(new CustomerOrderCompleteDataModel(customerOrder, transactionStateMessage));
+        });
+
+        return customerOrderCompleteDataModels;
+    }
+
+    @CachePut(cacheNames = "ordersCache", key = "#result.id")
     public Order getOrderById(Long id) {
+        return findOrderById(id);
+    }
+
+    private Order findOrderById(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(String.format("Order with ID: %s was not found", id)));
     }
@@ -175,9 +223,10 @@ public class OrderService {
      * Reasons: customer can select different products from different vendors, with different delivery settings, for correct processing they are going to be split
      */
     @Transactional
+    @CachePut(cacheNames = "ordersCache", key = "#result.id")
     public List<Order> saveOrder(@Valid CreateOrderDTO createOrderDTO) {
         if (createOrderDTO.getOrderedProducts() == null || createOrderDTO.getOrderedProducts().isEmpty()) {
-            throw new RuntimeException("Invalid order model, no ordered products");
+            throw new RuntimeException("Invalid order entity, no ordered products");
         }
 
         if (createOrderDTO.getPaymentType() == PaymentType.COD && createOrderDTO.isPaid()) {
@@ -189,21 +238,27 @@ public class OrderService {
             createOrderDTO.setDeliveryServiceType(DeliveryServiceType.NONE);
         }
 
+        if (userDetailsImplementationService.getUserRoleById(createOrderDTO.getCustomerId()) == null) {
+            throw new NotFoundException("Customer with ID {} was not found", createOrderDTO.getCustomerId());
+        }
+
         List<Order> orders = new ArrayList<>();
 
         for (OrderedProductDTO orderedProductDTO : createOrderDTO.getOrderedProducts()) {
             Order order = orderMapper.dtoToEntity(createOrderDTO);
+
             if (!createOrderDTO.isPaid()) {
                 order.setStatus(OrderStatus.INITIATED);
             } else {
                 order.setStatus(OrderStatus.PAID);
+                order.setTransactionId(createOrderDTO.getTransactionId());
             }
 
             order = save(order);
 
             Pair<Product, Integer> orderedProduct = productService.getProductOrderingPair(orderedProductDTO);
 
-            order.setOrderedProducts(new ArrayList<>(List.of(orderedProduct.getFirst())));
+            productService.orderProduct(order.getId(), orderedProduct.getFirst().getId(), orderedProductDTO.getAmount());
 
             BigDecimal productCost = orderedProduct.getFirst().getCost()
                     .multiply(BigDecimal.valueOf(orderedProduct.getSecond()));
@@ -244,8 +299,9 @@ public class OrderService {
     }
 
     @Transactional
+    @CachePut(cacheNames = "ordersCache", key = "#result.id")
     public Order updateOrder(@Valid UpdateOrderDTO updateOrderDTO) {
-        Order order = getOrderById(updateOrderDTO.getOrderId());
+        Order order = findOrderById(updateOrderDTO.getOrderId());
 
         if (updateOrderDTO.getNextStatus() == order.getStatus()) {
             log.debug("Order status update is redundant, new status {} is already registered", updateOrderDTO.getNextStatus());
@@ -342,16 +398,16 @@ public class OrderService {
     }
 
     @Transactional
-    public Map<Long, List<OrderHistoryDTO>> getOrderHistory(@DefaultNumberValue Integer page,
+    public Map<BigInteger, List<OrderHistoryDTO>> getOrderHistory(@DefaultNumberValue Integer page,
                                                             @DefaultNumberValue(number = 100) Integer size,
                                                             @DefaultStringValue(string = Order.Fields.creationDate) String sortBy,
-                                                            @DefaultStringValue(string = "ASC")String direction,
+                                                            @DefaultStringValue(string = "ASC") String direction,
                                                             OrderFilter orderFilter) {
         List<Order> orders = getOrders(orderFilter, page, size, sortBy, direction);
 
         String script = ResourceLoaderUtil.getResourceContent(Scripts.getOrderHistoryEntries);
 
-        Map<Long, List<OrderHistoryDTO>> ordersHistoryEntries = new HashMap<>();
+        Map<BigInteger, List<OrderHistoryDTO>> ordersHistoryEntries = new HashMap<>();
         ObjectMapper objectMapper = UtilManager.objectMapper();
 
         for (Order order : orders) {
@@ -363,10 +419,11 @@ public class OrderService {
                     orderHistoryDTO.setUpdatedOrder(objectMapper.readValue(resultSet.getString("updated_order"), Order.class));
                     orderHistoryDTO.setIteration(resultSet.getLong("iteration"));
                     orderHistoryDTO.setUpdatedFields(Arrays.asList((String[]) resultSet.getArray("updated_fields").getArray()));
+                    orderHistoryDTO.setUpdateTime(resultSet.getTimestamp("update_time"));
 
-                    ordersHistoryEntries.putIfAbsent(orderHistoryDTO.getOrderId(), new ArrayList<>());
+                    ordersHistoryEntries.putIfAbsent(order.getNumber(), new ArrayList<>());
 
-                    ordersHistoryEntries.get(orderHistoryDTO.getOrderId()).add(orderHistoryDTO);
+                    ordersHistoryEntries.get(order.getNumber()).add(orderHistoryDTO);
                 } catch (Exception ignored) {
 
                 }
@@ -379,8 +436,8 @@ public class OrderService {
 
     /**
      *
-     * @param source order model before update
-     * @return copy of source order model(not deep copying)
+     * @param source order entity before update
+     * @return copy of source order entity(not deep copying)
      */
     private Order copyOrderModelForHistoryEntryComparison(Order source) {
         Order copy = new Order();
@@ -406,7 +463,7 @@ public class OrderService {
     public void exportOrders(OrderFilter orderFilter, String filename, HttpServletResponse httpServletResponse) {
         try {
             Workbook workbook = new XSSFWorkbook();
-            Sheet sheet = workbook.createSheet("Products");
+            Sheet sheet = workbook.createSheet("Orders");
             sheet.setDefaultColumnWidth(50);
 
             httpServletResponse.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
@@ -422,7 +479,69 @@ public class OrderService {
 
                 if (!orders.isEmpty()) {
                     Row headerRow = sheet.createRow(0);
-                    Field[] fields = orders.get(0).getClass().getDeclaredFields();
+                    Field[] fields = Order.class.getDeclaredFields();
+                    for (int i = 0; i < fields.length; i++) {
+                        headerRow.createCell(i).setCellValue(ExportUtil.convertFieldNameToTitle(fields[i].getName()));
+                    }
+
+                    int rowNum = 1;
+
+                    for (Order order : orders) {
+                        Row row = sheet.createRow(rowNum++);
+                        int colNum = 0;
+                        for (Field field : fields) {
+                            field.setAccessible(true);
+                            try {
+                                Object value = field.get(order);
+                                if (value != null) {
+                                    ExportUtil.setCellValue(row.createCell(colNum++), value);
+                                } else {
+                                    row.createCell(colNum++).setCellValue("NONE");
+                                }
+                            } catch (IllegalAccessException e) {
+                                log.error(e.getMessage(), e);
+                            }
+                        }
+                    }
+                    workbook.write(outputStream);
+                    page++;
+                } else {
+                    if (page == 1) {
+                        httpServletResponse.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        httpServletResponse.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline");
+                    }
+                }
+            } while (!orders.isEmpty());
+
+            workbook.close();
+            outputStream.close();
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+            throw new DefaultException("Exception occurred while exporting");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void exportOrderHistory(OrderFilter orderFilter, String filename, HttpServletResponse httpServletResponse) {
+        try {
+            Workbook workbook = new XSSFWorkbook();
+            Sheet sheet = workbook.createSheet("History");
+            sheet.setDefaultColumnWidth(50);
+
+            httpServletResponse.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_DISPOSITION, String.format("attachment; filename=%s.xlsx", ExportUtil.validateFilename(filename)));
+            OutputStream outputStream = httpServletResponse.getOutputStream();
+
+            int page = 1;
+            int limitPerPage = 500;
+            List<Order> orders;
+
+            do {
+                orders = getOrders(orderFilter, page, limitPerPage, null, null);
+
+                if (!orders.isEmpty()) {
+                    Row headerRow = sheet.createRow(0);
+                    Field[] fields = OrderHistoryDTO.class.getDeclaredFields();
                     for (int i = 0; i < fields.length; i++) {
                         headerRow.createCell(i).setCellValue(ExportUtil.convertFieldNameToTitle(fields[i].getName()));
                     }
