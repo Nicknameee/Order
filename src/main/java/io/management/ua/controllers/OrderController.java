@@ -52,14 +52,14 @@ public class OrderController {
         return Response.ok(orderService.getOrderHistory(page, size, sortBy, direction, orderFilter));
     }
 
-    @GetMapping("/export")
+    @PostMapping("/export")
     public void exportOrderData(@RequestBody(required = false) OrderFilter orderFilter,
                                 @RequestParam(required = false) String filename,
                                 HttpServletResponse httpServletResponse) {
         orderService.exportOrders(orderFilter, filename, httpServletResponse);
     }
 
-    @GetMapping("/export/history")
+    @PostMapping("/export/history")
     public void exportOrderHistoryData(@RequestBody(required = false) OrderFilter orderFilter,
                                        @RequestParam(required = false) String filename,
                                        HttpServletResponse httpServletResponse) {

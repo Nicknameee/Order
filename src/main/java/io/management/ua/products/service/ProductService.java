@@ -7,6 +7,7 @@ import io.management.ua.annotations.DefaultStringValue;
 import io.management.ua.category.repository.CategoryRepository;
 import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
+import io.management.ua.orders.dto.OrderHistoryDTO;
 import io.management.ua.orders.entity.Order;
 import io.management.ua.products.dto.*;
 import io.management.ua.products.entity.Product;
@@ -399,5 +400,48 @@ public class ProductService {
 
     public void orderProduct(Long orderId, Long productId, Integer productAmount) {
         jdbcTemplate.update(ResourceLoaderUtil.getResourceContent(Scripts.addOrderedProductEntry), orderId, productId, productAmount);
+    }
+
+    public Product getProduct(UUID productId) {
+        return productRepository.findByProductId(productId).orElseThrow(() -> new NotFoundException("Product with product ID {} was not found", productId));
+    }
+
+    public List<ProductSaleStatisticView> getSalesStatistic(UUID productId, Date from, Date to) {
+        String script = ResourceLoaderUtil.getResourceContent(Scripts.getProductSalesStatistic);
+
+        if (from == null) {
+            from = new Date(0);
+        }
+        if (to == null) {
+            to = new Date();
+        }
+
+        Map<Date, ProductSaleStatisticView> list = new HashMap<>();
+
+        jdbcTemplate.query(script, resultSet -> {
+                    try {
+                        Date date = resultSet.getDate("time");
+                        if (list.containsKey(date)) {
+                            ProductSaleStatisticView view = list.get(date);
+
+                            view.setItemsSold(view.getItemsSold() + resultSet.getInt("items_sold"));
+                            view.setTotalCost(view.getTotalCost().add(resultSet.getBigDecimal("total_cost")));
+                        } else {
+                            ProductSaleStatisticView productSaleStatistic = new ProductSaleStatisticView();
+
+                            productSaleStatistic.setProductId(productId);
+                            productSaleStatistic.setTotalCost(resultSet.getBigDecimal("total_cost"));
+                            productSaleStatistic.setItemsSold(resultSet.getInt("items_sold"));
+                            productSaleStatistic.setDate(date);
+
+                            list.put(date, productSaleStatistic);
+                        }
+                    } catch (Exception ignored) {
+
+                    }
+                }, productId, from, to
+        );
+
+        return new ArrayList<>(list.values());
     }
 }

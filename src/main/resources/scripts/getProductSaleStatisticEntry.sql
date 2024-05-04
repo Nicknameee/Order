@@ -1,0 +1,1 @@
+SELECT product_id, time, items_sold, total_cost FROM product_sales_statistic WHERE product_id = ? AND time BETWEEN ? AND ? ORDER BY time

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.management.ua.address.dto.OrderShipmentAddressDTO;
 import io.management.ua.address.entity.OrderShipmentAddress;
 import io.management.ua.address.service.OrderShipmentAddressService;
+import io.management.ua.amqp.messages.MessageModel;
 import io.management.ua.annotations.DefaultNumberValue;
 import io.management.ua.annotations.DefaultStringValue;
 import io.management.ua.exceptions.ActionRestrictedException;
@@ -16,6 +17,7 @@ import io.management.ua.orders.dto.*;
 import io.management.ua.orders.entity.Order;
 import io.management.ua.orders.mapper.OrderMapper;
 import io.management.ua.orders.repository.OrderRepository;
+import io.management.ua.producers.MessageProducer;
 import io.management.ua.products.dto.OrderedProductDTO;
 import io.management.ua.products.dto.ProductSaleStatisticEntry;
 import io.management.ua.products.entity.OrderedProduct;
@@ -27,6 +29,8 @@ import io.management.ua.transactions.mapper.TransactionMapper;
 import io.management.ua.transactions.repository.TransactionRepository;
 import io.management.ua.utility.*;
 import io.management.ua.utility.api.enums.DeliveryServiceType;
+import io.management.ua.utility.models.UserSecurityRole;
+import io.management.users.models.UserDetailsModel;
 import io.management.users.service.UserDetailsImplementationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +77,7 @@ public class OrderService {
     private final UserDetailsImplementationService userDetailsImplementationService;
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
+    private final MessageProducer messageProducer;
 
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "ordersCache", key = "#result.id", condition = "#result.size() > 0")
@@ -171,7 +176,9 @@ public class OrderService {
             query.orderBy(criteriaBuilder.desc(root.get(Order.Fields.creationDate)));
         }
 
-        return entityManager.createQuery(query).setFirstResult((page - 1) * size).setMaxResults(size).getResultList();
+        return entityManager.createQuery(query)
+                .setFirstResult((page - 1) * size).setMaxResults(size)
+                .getResultList();
     }
 
     @Transactional
@@ -317,6 +324,34 @@ public class OrderService {
             }
 
             order = save(order);
+
+            try {
+                UserDetailsModel userDetailsModel = userDetailsImplementationService.getUserById(order.getCustomerId());
+
+                if (userDetailsModel != null) {
+
+                    MessageModel messageModel = new MessageModel();
+
+                    messageModel.setSender("CRM");
+
+                    if (userDetailsModel.getEmail() != null) {
+                        messageModel.setMessagePlatform(MessageModel.MessagePlatform.EMAIL);
+                        messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                        messageModel.setReceiver(userDetailsModel.getEmail());
+                    } else if (userDetailsModel.getTelegramUsername() != null) {
+                        messageModel.setMessagePlatform(MessageModel.MessagePlatform.TELEGRAM);
+                        messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                        messageModel.setReceiver(userDetailsModel.getTelegramUsername());
+                    }
+
+                    messageModel.setSubject("Notification from CRM");
+                    messageModel.setContent("Your order " + order.getNumber() + " was updated to status " + order.getStatus().name().replaceAll("_", " "));
+
+                    messageProducer.produce(messageModel);
+                }
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
         } else {
             throw new ActionRestrictedException(String.format("Order can not be transferred to the status named: %s", updateOrderDTO.getNextStatus()));
         }
@@ -524,9 +559,8 @@ public class OrderService {
     @Transactional(readOnly = true)
     public void exportOrderHistory(OrderFilter orderFilter, String filename, HttpServletResponse httpServletResponse) {
         try {
+
             Workbook workbook = new XSSFWorkbook();
-            Sheet sheet = workbook.createSheet("History");
-            sheet.setDefaultColumnWidth(50);
 
             httpServletResponse.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
             httpServletResponse.setHeader(HttpHeaders.CONTENT_DISPOSITION, String.format("attachment; filename=%s.xlsx", ExportUtil.validateFilename(filename)));
@@ -534,37 +568,69 @@ public class OrderService {
 
             int page = 1;
             int limitPerPage = 500;
-            List<Order> orders;
+            Map<BigInteger, List<OrderHistoryDTO>> orders;
+
+            UserDetailsModel userDetailsModel = UserDetailsImplementationService.getCurrentlyAuthenticatedUser();
+            if (userDetailsModel != null && userDetailsModel.getRole().equals(UserSecurityRole.ROLE_CUSTOMER)) {
+                orderFilter.setCustomerId(userDetailsModel.getId());
+            }
 
             do {
-                orders = getOrders(orderFilter, page, limitPerPage, null, null);
+                orders = getOrderHistory(page, limitPerPage, null, null, orderFilter);
 
                 if (!orders.isEmpty()) {
-                    Row headerRow = sheet.createRow(0);
-                    Field[] fields = OrderHistoryDTO.class.getDeclaredFields();
-                    for (int i = 0; i < fields.length; i++) {
-                        headerRow.createCell(i).setCellValue(ExportUtil.convertFieldNameToTitle(fields[i].getName()));
-                    }
+                    for (Map.Entry<BigInteger, List<OrderHistoryDTO>> order : orders.entrySet()) {
+                        int rowNum = 1;
+                        Sheet sheet = workbook.createSheet("History " + order.getKey());
+                        sheet.setDefaultColumnWidth(50);
 
-                    int rowNum = 1;
+                        Row headerRow = sheet.createRow(0);
+                        Field[] fields = Order.class.getDeclaredFields();
 
-                    for (Order order : orders) {
-                        Row row = sheet.createRow(rowNum++);
-                        int colNum = 0;
-                        for (Field field : fields) {
-                            field.setAccessible(true);
-                            try {
-                                Object value = field.get(order);
-                                if (value != null) {
-                                    ExportUtil.setCellValue(row.createCell(colNum++), value);
-                                } else {
-                                    row.createCell(colNum++).setCellValue("NONE");
+                        for (int i = 0; i < fields.length; i++) {
+                            headerRow.createCell(i).setCellValue(ExportUtil.convertFieldNameToTitle(fields[i].getName()));
+                        }
+
+                        for (OrderHistoryDTO orderHistoryDTO : order.getValue()) {
+                            Row row = sheet.createRow(rowNum++);
+                            int colNum = 0;
+
+                            for (Field field : fields) {
+                                field.setAccessible(true);
+                                try {
+                                    Object value = field.get(orderHistoryDTO.getUpdatedOrder());
+                                    if (value != null) {
+                                        ExportUtil.setCellValue(row.createCell(colNum++), value);
+                                    } else {
+                                        row.createCell(colNum++).setCellValue("NONE");
+                                    }
+                                } catch (IllegalAccessException e) {
+                                    log.error(e.getMessage(), e);
                                 }
-                            } catch (IllegalAccessException e) {
-                                log.error(e.getMessage(), e);
+                            }
+
+                            if (rowNum == order.getValue().size() + 1 || order.getValue().size() == 1) {
+
+                                row = sheet.createRow(rowNum++);
+                                colNum = 0;
+
+                                for (Field field : fields) {
+                                    field.setAccessible(true);
+                                    try {
+                                        Object value = field.get(orderHistoryDTO.getOldOrder());
+                                        if (value != null) {
+                                            ExportUtil.setCellValue(row.createCell(colNum++), value);
+                                        } else {
+                                            row.createCell(colNum++).setCellValue("NONE");
+                                        }
+                                    } catch (IllegalAccessException e) {
+                                        log.error(e.getMessage(), e);
+                                    }
+                                }
                             }
                         }
                     }
+
                     workbook.write(outputStream);
                     page++;
                 } else {

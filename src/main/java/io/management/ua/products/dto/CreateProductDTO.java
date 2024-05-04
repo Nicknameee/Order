@@ -19,7 +19,6 @@ public class CreateProductDTO {
     private String brand;
     private Map<String, String> parameters;
     private String description;
-    @NotNull(message = "Vendor for product must be specified")
     private UUID vendorId;
     private BigDecimal cost;
     @NotNull(message = "Currency must be specified")
@@ -31,6 +30,6 @@ public class CreateProductDTO {
     @NotNull(message = "Category for product must be specified")
     private UUID categoryId;
     @NotNull(message = "Margin rate should be specified")
-    @DecimalMin(value = "1", inclusive = false, message = "Invalid margin rate, no profit for product sale would be consumed")
+    @DecimalMin(value = "1", inclusive = true, message = "Invalid margin rate, no profit for product sale would be consumed")
     private BigDecimal marginRate;
 }

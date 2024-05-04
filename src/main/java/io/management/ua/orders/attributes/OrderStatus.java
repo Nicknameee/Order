@@ -35,33 +35,35 @@ public enum OrderStatus {
             return true;
         }
 
-        switch (paymentType) {
-            case PREPAYMENT -> {
-                Iterator<OrderStatus> prepaidIterator = prepaymentTransitionChain.iterator();
+//        switch (paymentType) {
+//            case PREPAYMENT -> {
+//                Iterator<OrderStatus> prepaidIterator = prepaymentTransitionChain.iterator();
+//
+//                while (prepaidIterator.hasNext()) {
+//                    if (prepaidIterator.next() == previousStatus) {
+//                        if (prepaidIterator.hasNext()) {
+//                            return (prepaidIterator.next() == status);
+//                        }
+//                    }
+//                }
+//
+//                return false;
+//            }
+//            case COD -> {
+//                Iterator<OrderStatus> codIterator = CODTransitionChain.iterator();
+//
+//                while (codIterator.hasNext()) {
+//                    if (codIterator.next() == previousStatus) {
+//                        if (codIterator.hasNext()) {
+//                            return (codIterator.next() == status);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//
+//        return false;
 
-                while (prepaidIterator.hasNext()) {
-                    if (prepaidIterator.next() == previousStatus) {
-                        if (prepaidIterator.hasNext()) {
-                            return (prepaidIterator.next() == status);
-                        }
-                    }
-                }
-
-                return false;
-            }
-            case COD -> {
-                Iterator<OrderStatus> codIterator = CODTransitionChain.iterator();
-
-                while (codIterator.hasNext()) {
-                    if (codIterator.next() == previousStatus) {
-                        if (codIterator.hasNext()) {
-                            return (codIterator.next() == status);
-                        }
-                    }
-                }
-            }
-        }
-
-        return false;
+        return true;
     }
 }

@@ -6,11 +6,13 @@ import io.management.ua.products.dto.UpdateProductDTO;
 import io.management.ua.products.service.ProductService;
 import io.management.ua.response.Response;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,6 +34,11 @@ public class ProductController {
                                    @RequestParam(required = false) String direction,
                                    @RequestBody ProductFilter productFilter) {
         return Response.ok(productService.getProducts(productFilter, page, size, sortBy, direction));
+    }
+
+    @GetMapping("/product")
+    public Response<?> getProduct(@RequestParam UUID productId) {
+        return Response.ok(productService.getProduct(productId));
     }
 
     @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
@@ -87,5 +94,12 @@ public class ProductController {
     @DeleteMapping("/waiting/list")
     public Response<?> removeProductFromWaitingList(@RequestParam Long customerId, @RequestParam UUID productId) {
         return Response.ok(productService.removeProductFromWaitingList(customerId, productId));
+    }
+
+    @GetMapping("/statistic/sales")
+    public Response<?> getSalesStatistic(@RequestParam UUID productId,
+                                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date from,
+                                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date to) {
+        return Response.ok(productService.getSalesStatistic(productId, from, to));
     }
 }
