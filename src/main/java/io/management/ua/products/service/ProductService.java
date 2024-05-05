@@ -7,8 +7,8 @@ import io.management.ua.annotations.DefaultStringValue;
 import io.management.ua.category.repository.CategoryRepository;
 import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
-import io.management.ua.orders.dto.OrderHistoryDTO;
 import io.management.ua.orders.entity.Order;
+import io.management.ua.products.attributes.Currency;
 import io.management.ua.products.dto.*;
 import io.management.ua.products.entity.Product;
 import io.management.ua.products.entity.WaitingListProduct;
@@ -19,6 +19,8 @@ import io.management.ua.utility.ExportUtil;
 import io.management.ua.utility.ResourceLoaderUtil;
 import io.management.ua.utility.Scripts;
 import io.management.ua.utility.api.enums.Folder;
+import io.management.users.models.UserDetailsModel;
+import io.management.users.service.UserDetailsImplementationService;
 import io.netty.util.internal.StringUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +58,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -69,6 +73,7 @@ public class ProductService {
     private final ProductMapper productMapper;
     private final ImageHostingService imageHostingService;
     private final WaitingListProductRepository waitingListProductRepository;
+    private final UserDetailsImplementationService userDetailsImplementationService;
 
     public List<ProductLinkDTO> getProductLinksByNamePartial(String searchBy, @DefaultNumberValue Integer page) {
         List<ProductLinkDTO> productLinks = new ArrayList<>();
@@ -476,5 +481,47 @@ public class ProductService {
         );
 
         return dayToProfit;
+    }
+
+    public List<AcquireLeads> getUserTopProfit(Date from, Date to, @DefaultNumberValue Integer page) {
+        String script = ResourceLoaderUtil.getResourceContent(Scripts.getUserTopProfitList);
+
+        if (from == null) {
+            from = new Date(0);
+        }
+        if (to == null) {
+            to = new Date();
+        }
+
+        List<AcquireLeads> acquies = new ArrayList<>();
+
+        jdbcTemplate.query(script, resultSet -> {
+            AcquireLeads acquireLeads = new AcquireLeads();
+            acquireLeads.setCustomerId(resultSet.getLong("customer_id"));
+            acquireLeads.setCurrency(Currency.valueOf(resultSet.getString("currency")));
+            acquireLeads.setTotalProfitByCustomer(resultSet.getBigDecimal("sum"));
+
+            acquies.add(acquireLeads);
+        }, from, to, 100, 100 * (page - 1));
+
+        for (AcquireLeads acquireLeads : acquies) {
+            UserDetailsModel use = userDetailsImplementationService.getUserById(acquireLeads.getCustomerId());
+
+            if (use != null) {
+                if (use.getEmail() != null) {
+                    acquireLeads.getContact().add(use.getEmail());
+                }
+                if (use.getTelegramUsername() != null) {
+                    acquireLeads.getContact().add("https://telegram.me/" + use.getTelegramUsername());
+                }
+            }
+        }
+
+        return acquies;
+    }
+
+    @Scheduled(fixedRate = 1, initialDelay = 0, timeUnit = TimeUnit.DAYS)
+    public void sendMarketingOfRecentProducts() {
+//        List<Product>
     }
 }

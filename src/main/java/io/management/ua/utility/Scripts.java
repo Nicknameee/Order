@@ -7,4 +7,5 @@ public class Scripts {
     public static final String addOrderedProductEntry = "classpath:/scripts/addOrderedProductEntry.sql";
     public static final String getProductSalesStatistic = "classpath:/scripts/getProductSaleStatisticEntry.sql";
     public static final String getProfitByDayInRange = "classpath:/scripts/getProfitPerDayInRange.sql";
+    public static final String getUserTopProfitList = "classpath:/scripts/getUserTopProfit.sql";
 }

@@ -2,6 +2,7 @@ package io.management.ua.transactions.service;
 
 import io.management.ua.annotations.DefaultNumberValue;
 import io.management.ua.annotations.DefaultStringValue;
+import io.management.ua.exceptions.ActionRestrictedException;
 import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
 import io.management.ua.orders.attributes.OrderStatus;
@@ -40,9 +41,7 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.validation.Valid;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -175,12 +174,18 @@ public class TransactionService {
         Order order = orderRepository.findByNumber(num)
                 .orElseThrow(() -> new NotFoundException("Order with number {} was not found", transactionManualInitiativeModel.getNumber()));
 
+        if (order.getTransactionId() != null) {
+            throw new ActionRestrictedException("Order with number {} is already paid", num);
+        }
+
         Transaction transaction = new Transaction();
 
         transaction.setId(UUID.randomUUID());
         transaction.setCustomerId(order.getCustomerId());
         transaction.setAmount(transactionManualInitiativeModel.getPaymentAmount());
-        transaction.setReference(BigInteger.ONE);
+        transaction.setReference(BigInteger.valueOf(new Date().getTime() * new Random().nextInt(3, 9) -
+                new Random().nextInt(10000) * new Random().nextInt(333) +
+                new Random().nextInt(33333)));
         if (order.getOrderedProducts() != null && !order.getOrderedProducts().isEmpty() && order.getOrderedProducts().get(0).getProduct() != null) {
             transaction.setSourceCurrency(order.getOrderedProducts().get(0).getProduct().getCurrency());
             transaction.setAcquiringCurrency(order.getOrderedProducts().get(0).getProduct().getCurrency());
@@ -198,8 +203,12 @@ public class TransactionService {
             order.setStatus(OrderStatus.PAID);
         }
 
+        transaction = transactionRepository.save(transaction);
+
+        order.setTransactionId(transaction.getId());
+
         orderRepository.save(order);
 
-        return transactionRepository.save(transaction);
+        return transaction;
     }
 }
