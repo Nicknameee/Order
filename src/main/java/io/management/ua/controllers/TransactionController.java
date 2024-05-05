@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 public class TransactionController {
     private final TransactionService transactionService;
 
-    @GetMapping
+    @PostMapping
     public Response<?> getTransactions(@RequestBody(required = false) TransactionFilter transactionFilter,
                                        @RequestParam(required = false) Integer page,
                                        @RequestParam(required = false) Integer size,
