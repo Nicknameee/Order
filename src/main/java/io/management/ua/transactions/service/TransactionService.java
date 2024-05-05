@@ -2,18 +2,24 @@ package io.management.ua.transactions.service;
 
 import io.management.ua.annotations.DefaultNumberValue;
 import io.management.ua.annotations.DefaultStringValue;
+import io.management.ua.exceptions.DefaultException;
+import io.management.ua.exceptions.NotFoundException;
+import io.management.ua.orders.attributes.OrderStatus;
+import io.management.ua.orders.entity.Order;
+import io.management.ua.orders.repository.OrderRepository;
 import io.management.ua.products.attributes.Currency;
 import io.management.ua.transactions.dto.TransactionFilter;
 import io.management.ua.transactions.dto.TransactionInitiativeDTO;
+import io.management.ua.transactions.dto.TransactionManualInitiativeModel;
 import io.management.ua.transactions.dto.TransactionStateMessage;
 import io.management.ua.transactions.entity.Transaction;
 import io.management.ua.transactions.mapper.TransactionMapper;
 import io.management.ua.transactions.repository.TransactionRepository;
 import io.management.ua.utility.TimeUtil;
 import io.management.ua.utility.api.datatrans.configuration.DataTransConfiguration;
+import io.management.ua.utility.api.datatrans.models.TransactionProcessingError;
 import io.management.ua.utility.api.datatrans.models.authorization.AuthorizationResponse;
 import io.management.ua.utility.api.datatrans.models.authorization.TransactionAuthorizationAPIModel;
-import io.management.ua.utility.api.datatrans.models.TransactionProcessingError;
 import io.management.ua.utility.api.datatrans.models.payment.TransactionPaymentAPIModel;
 import io.management.ua.utility.api.datatrans.service.DataTransTransactionService;
 import io.management.ua.utility.enums.WebSocketTopics;
@@ -33,6 +39,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.validation.Valid;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +56,7 @@ public class TransactionService {
     private final DataTransConfiguration dataTransConfiguration;
     private final WebSocketService webSocketService;
     private final TransactionMapper transactionMapper;
+    private final OrderRepository orderRepository;
 
     public List<Transaction> getTransactions(@Nullable @Valid TransactionFilter transactionFilter,
                                              @DefaultNumberValue Integer page,
@@ -107,7 +115,7 @@ public class TransactionService {
         TransactionAuthorizationAPIModel transactionAuthorizationAPIModel = dataTransTransactionService.processTransaction(transactionInitiativeDTO);
         TransactionStateMessage transactionStateMessage;
 
-        if ((!transactionAuthorizationAPIModel.getAuthorizationBody().getStatus().toLowerCase().equals("error")
+        if ((!transactionAuthorizationAPIModel.getAuthorizationBody().getStatus().equalsIgnoreCase("error")
                 && transactionAuthorizationAPIModel.getError() == null)
                 || (transactionAuthorizationAPIModel.getError() != null && transactionAuthorizationAPIModel.getError().getErrorMessage() == null)) {
             AuthorizationResponse authorizationResponse = transactionAuthorizationAPIModel.getAuthorizationBody().getTransaction().getAuthorizationResponse();
@@ -151,5 +159,47 @@ public class TransactionService {
         webSocketService.sendMessage(WebSocketTopics.TRANSACTION_STATE.getTopic() + "/" + transactionStateMessage.getCustomerId(), transactionStateMessage);
 
         return transactionRepository.saveAndFlush(transaction);
+    }
+
+    @Transactional
+    public Transaction addManualPayment(@Valid TransactionManualInitiativeModel transactionManualInitiativeModel) {
+        BigInteger num;
+
+        try {
+            num = new BigInteger(transactionManualInitiativeModel.getNumber());
+        } catch (NumberFormatException e) {
+            log.error(e.getMessage(), e);
+            throw new DefaultException("Order can not be found because num is ivalid {}", transactionManualInitiativeModel.getNumber());
+        }
+
+        Order order = orderRepository.findByNumber(num)
+                .orElseThrow(() -> new NotFoundException("Order with number {} was not found", transactionManualInitiativeModel.getNumber()));
+
+        Transaction transaction = new Transaction();
+
+        transaction.setId(UUID.randomUUID());
+        transaction.setCustomerId(order.getCustomerId());
+        transaction.setAmount(transactionManualInitiativeModel.getPaymentAmount());
+        transaction.setReference(BigInteger.ONE);
+        if (order.getOrderedProducts() != null && !order.getOrderedProducts().isEmpty() && order.getOrderedProducts().get(0).getProduct() != null) {
+            transaction.setSourceCurrency(order.getOrderedProducts().get(0).getProduct().getCurrency());
+            transaction.setAcquiringCurrency(order.getOrderedProducts().get(0).getProduct().getCurrency());
+        } else {
+            transaction.setSourceCurrency(Currency.USD);
+            transaction.setAcquiringCurrency(Currency.USD);
+        }
+        transaction.setStatus("SETTLED");
+        transaction.setIssuedAt(TimeUtil.getCurrentDateTime());
+        transaction.setSettledAt(TimeUtil.getCurrentDateTime());
+        transaction.setMerchantId("MANUAL");
+        transaction.setTransactionId(UUID.randomUUID().toString());
+
+        if (!OrderStatus.completedStatus.contains(order.getStatus())) {
+            order.setStatus(OrderStatus.PAID);
+        }
+
+        orderRepository.save(order);
+
+        return transactionRepository.save(transaction);
     }
 }

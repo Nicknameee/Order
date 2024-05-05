@@ -3,8 +3,10 @@ package io.management.ua.controllers;
 import io.management.ua.response.Response;
 import io.management.ua.transactions.dto.TransactionFilter;
 import io.management.ua.transactions.dto.TransactionInitiativeDTO;
+import io.management.ua.transactions.dto.TransactionManualInitiativeModel;
 import io.management.ua.transactions.service.TransactionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RequestMapping("/api/v1/transactions")
@@ -25,5 +27,11 @@ public class TransactionController {
     @PostMapping("/initiate")
     public Response<?> initiateTransaction(@RequestBody TransactionInitiativeDTO transactionInitiativeDTO) {
         return Response.ok(transactionService.processIncomingTransaction(transactionInitiativeDTO));
+    }
+
+    @PreAuthorize("hasAuthority(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
+    @PostMapping("/manual/payment")
+    public Response<?> addManualPayment(@RequestBody TransactionManualInitiativeModel transactionManualInitiativeModel) {
+        return Response.ok(transactionService.addManualPayment(transactionManualInitiativeModel));
     }
 }
