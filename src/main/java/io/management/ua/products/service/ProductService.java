@@ -444,4 +444,37 @@ public class ProductService {
 
         return new ArrayList<>(list.values());
     }
+
+    public Map<Date, BigDecimal> getProfitStatistic(Date from, Date to) {
+        String script = ResourceLoaderUtil.getResourceContent(Scripts.getProfitByDayInRange);
+
+        if (from == null) {
+            from = new Date(0);
+        }
+        if (to == null) {
+            to = new Date();
+        }
+
+
+        Map<Date, BigDecimal> dayToProfit = new HashMap<>();
+
+        jdbcTemplate.query(script, resultSet -> {
+                    try {
+                        Date date = resultSet.getDate("time");
+                        if (dayToProfit.containsKey(date)) {
+                            BigDecimal profit = dayToProfit.get(date);
+
+                            dayToProfit.put(date, profit.add(resultSet.getBigDecimal("ovle")));
+                        } else {
+
+                            dayToProfit.put(date, resultSet.getBigDecimal("ovle"));
+                        }
+                    } catch (Exception ignored) {
+
+                    }
+                }, from, to
+        );
+
+        return dayToProfit;
+    }
 }

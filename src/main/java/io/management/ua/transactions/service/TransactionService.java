@@ -107,9 +107,9 @@ public class TransactionService {
         TransactionAuthorizationAPIModel transactionAuthorizationAPIModel = dataTransTransactionService.processTransaction(transactionInitiativeDTO);
         TransactionStateMessage transactionStateMessage;
 
-        if (!transactionAuthorizationAPIModel.getAuthorizationBody().getStatus().equals("ERROR")
-                && transactionAuthorizationAPIModel.getError() == null
-                || transactionAuthorizationAPIModel.getError().getErrorMessage() == null) {
+        if ((!transactionAuthorizationAPIModel.getAuthorizationBody().getStatus().toLowerCase().equals("error")
+                && transactionAuthorizationAPIModel.getError() == null)
+                || (transactionAuthorizationAPIModel.getError() != null && transactionAuthorizationAPIModel.getError().getErrorMessage() == null)) {
             AuthorizationResponse authorizationResponse = transactionAuthorizationAPIModel.getAuthorizationBody().getTransaction().getAuthorizationResponse();
             transaction.setStatus(transactionAuthorizationAPIModel.getAuthorizationBody().getStatus().toUpperCase());
             transaction.setTransactionId(authorizationResponse.getUppTransactionId());
@@ -140,7 +140,9 @@ public class TransactionService {
             }
         } else {
             TransactionProcessingError transactionProcessingError = transactionAuthorizationAPIModel.getError();
-            log.error(transactionProcessingError.getErrorMessage(), transactionProcessingError);
+            if (transactionProcessingError != null) {
+                log.error(transactionProcessingError.getErrorMessage(), transactionProcessingError);
+            }
 
             transactionStateMessage = transactionMapper.modelToStateMessage(transaction);
             transactionStateMessage.setAuthorized(false);
