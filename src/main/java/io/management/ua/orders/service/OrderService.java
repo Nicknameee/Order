@@ -85,7 +85,7 @@ public class OrderService {
                                  @DefaultNumberValue Integer page,
                                  @DefaultNumberValue(number = 100) Integer size,
                                  @DefaultStringValue(string = Order.Fields.creationDate) String sortBy,
-                                 @DefaultStringValue(string = "ASC") String direction) {
+                                 @DefaultStringValue(string = "DESC") String direction) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Order> query = criteriaBuilder.createQuery(Order.class);
         Root<Order> root = query.from(Order.class);

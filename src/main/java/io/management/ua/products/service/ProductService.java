@@ -98,7 +98,7 @@ public class ProductService {
                                      @DefaultNumberValue Integer page,
                                      @DefaultNumberValue(number = 100) Integer size,
                                      @DefaultStringValue(string = "cost") String sortBy,
-                                     @DefaultStringValue(string = "ASC") String direction) {
+                                     @DefaultStringValue(string = "DESC") String direction) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Product> query = criteriaBuilder.createQuery(Product.class);
         Root<Product> root = query.from(Product.class);

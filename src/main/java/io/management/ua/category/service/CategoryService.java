@@ -44,7 +44,7 @@ public class CategoryService {
     public List<Category> getAllCategories(@DefaultNumberValue Integer page,
                                            @DefaultNumberValue(number = 100) Integer size,
                                            @DefaultStringValue(string = "parentCategoryId") String sortBy,
-                                           @DefaultStringValue(string = "ASC") String direction,
+                                           @DefaultStringValue(string = "DESC") String direction,
                                            Boolean enabled,
                                            UUID parentCategoryId) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
