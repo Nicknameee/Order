@@ -57,9 +57,8 @@ public class ProductController {
     @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
     @PostMapping("/pictures")
     public Response<?> setProductPictures(@RequestParam UUID productId,
-                                          @RequestParam(required = false) List<String> picturesToRemove,
                                           @RequestParam(required = false) List<MultipartFile> picturesToAdd) {
-        return Response.ok(productService.setProductPictures(productId, picturesToRemove, picturesToAdd));
+        return Response.ok(productService.setProductPictures(productId, picturesToAdd));
     }
 
     @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
