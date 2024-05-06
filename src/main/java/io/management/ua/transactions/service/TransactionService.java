@@ -61,7 +61,7 @@ public class TransactionService {
                                              @DefaultNumberValue Integer page,
                                              @DefaultNumberValue(number = 100) Integer size,
                                              @DefaultStringValue(string = "issuedAt") String sortBy,
-                                             @DefaultStringValue(string = "ASC") String direction) {
+                                             @DefaultStringValue(string = "DESC") String direction) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Transaction> query = criteriaBuilder.createQuery(Transaction.class);
         Root<Transaction> root = query.from(Transaction.class);

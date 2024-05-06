@@ -256,36 +256,32 @@ public class ProductService {
         return productRepository.save(product);
     }
 
-    public Product setProductPictures(UUID productId, List<String> picturesToRemove, List<MultipartFile> picturesToAdd) {
-        if ((picturesToRemove == null || picturesToRemove.isEmpty()) && (picturesToAdd == null || picturesToAdd.isEmpty())) {
+    public Product setProductPictures(UUID productId, List<MultipartFile> picturesToAdd) {
+        if ((picturesToAdd == null || picturesToAdd.isEmpty())) {
             throw new DefaultException("Product pictures setting invocation is invalid");
         }
 
         Product product = productRepository.findByProductId(productId)
                 .orElseThrow(() -> new NotFoundException("Product with product ID {} was not found", productId));
 
-        if (picturesToRemove != null) {
-            for (String url : picturesToRemove) {
-                imageHostingService.deleteImage(url);
-            }
+        List<String> uwu = new ArrayList<>();
+
+        if (product.getPictureUrls() == null) {
+            product.setPictureUrls(new String[]{});
+        } else {
+            uwu = new ArrayList<>(List.of(product.getPictureUrls()));
+        }
+
+        for (MultipartFile picture : picturesToAdd) {
+            Image image = imageHostingService.uploadImage(picture, Folder.PRODUCTS + product.getProductId());
 
             List<String> urls = new ArrayList<>(Arrays.asList(product.getPictureUrls()));
-            urls.removeAll(picturesToRemove);
+            urls.add(image.getSecureUrl());
             product.setPictureUrls(urls.toArray(String[]::new));
         }
 
-        if (picturesToAdd != null) {
-            if (product.getPictureUrls() == null) {
-                product.setPictureUrls(new String[]{});
-            }
-
-            for (MultipartFile picture : picturesToAdd) {
-                Image image = imageHostingService.uploadImage(picture, Folder.PRODUCTS + product.getProductId());
-
-                List<String> urls = new ArrayList<>(Arrays.asList(product.getPictureUrls()));
-                urls.add(image.getSecureUrl());
-                product.setPictureUrls(urls.toArray(String[]::new));
-            }
+        for (String url : uwu) {
+            imageHostingService.deleteImage(url);
         }
 
         return productRepository.save(product);
