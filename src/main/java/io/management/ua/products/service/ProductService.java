@@ -2,12 +2,15 @@ package io.management.ua.products.service;
 
 import io.management.resources.models.Image;
 import io.management.resources.service.ImageHostingService;
+import io.management.ua.amqp.messages.MessageModel;
 import io.management.ua.annotations.DefaultNumberValue;
 import io.management.ua.annotations.DefaultStringValue;
 import io.management.ua.category.repository.CategoryRepository;
+import io.management.ua.exceptions.ActionRestrictedException;
 import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
 import io.management.ua.orders.entity.Order;
+import io.management.ua.producers.MessageProducer;
 import io.management.ua.products.attributes.Currency;
 import io.management.ua.products.dto.*;
 import io.management.ua.products.entity.Product;
@@ -19,6 +22,7 @@ import io.management.ua.utility.ExportUtil;
 import io.management.ua.utility.ResourceLoaderUtil;
 import io.management.ua.utility.Scripts;
 import io.management.ua.utility.api.enums.Folder;
+import io.management.ua.utility.models.UserSecurityRole;
 import io.management.users.models.UserDetailsModel;
 import io.management.users.service.UserDetailsImplementationService;
 import io.netty.util.internal.StringUtil;
@@ -58,6 +62,8 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -74,6 +80,8 @@ public class ProductService {
     private final ImageHostingService imageHostingService;
     private final WaitingListProductRepository waitingListProductRepository;
     private final UserDetailsImplementationService userDetailsImplementationService;
+    private final MessageProducer messageProducer;
+    private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(8);
 
     public List<ProductLinkDTO> getProductLinksByNamePartial(String searchBy, @DefaultNumberValue Integer page) {
         List<ProductLinkDTO> productLinks = new ArrayList<>();
@@ -213,6 +221,13 @@ public class ProductService {
         }
 
         if (updateProductDTO.getItemsLeft() != null && updateProductDTO.getItemsLeft() >= 0) {
+            if (product.getItemsLeft() == 0 && updateProductDTO.getItemsLeft() > 0) {
+                notifyWaitingCustomers(product);
+            }
+
+            if (product.getItemsLeft() >= 30 && updateProductDTO.getItemsLeft() < 30) {
+                notifyManager(product);
+            }
             product.setItemsLeft(updateProductDTO.getItemsLeft());
         }
 
@@ -399,8 +414,21 @@ public class ProductService {
         return numberOfAffectedEntries > 0;
     }
 
+    @Transactional
     public void orderProduct(Long orderId, Long productId, Integer productAmount) {
         jdbcTemplate.update(ResourceLoaderUtil.getResourceContent(Scripts.addOrderedProductEntry), orderId, productId, productAmount);
+        Product product = productRepository.findById(productId).orElseThrow(() -> new NotFoundException("Product with ID {} was not found", productId));
+
+        if (productAmount > product.getItemsLeft()) {
+            throw new ActionRestrictedException("Product amount for order is bigger than actual amount at store");
+        } else {
+            product.setItemsLeft(product.getItemsLeft() - productAmount);
+            productRepository.save(product);
+        }
+
+        if (product.getItemsLeft() < 30) {
+            notifyManager(product);
+        }
     }
 
     public Product getProduct(UUID productId) {
@@ -518,6 +546,73 @@ public class ProductService {
 
     @Scheduled(fixedRate = 1, initialDelay = 0, timeUnit = TimeUnit.DAYS)
     public void sendMarketingOfRecentProducts() {
-//        List<Product>
+    }
+
+    public void notifyWaitingCustomers(Product product) {
+        Runnable mailingTask = () -> {
+            List<Long> list = waitingListProductRepository.getCustomerIdsByProductId(product.getProductId());
+
+            if (list != null && !list.isEmpty()) {
+                for (Long i : list) {
+                    UserDetailsModel userDetailsModel = userDetailsImplementationService.getUserById(i);
+
+                    if (userDetailsModel != null) {
+
+                        MessageModel messageModel = new MessageModel();
+
+                        messageModel.setSender("CRM");
+
+                        if (userDetailsModel.getEmail() != null) {
+                            messageModel.setMessagePlatform(MessageModel.MessagePlatform.EMAIL);
+                            messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                            messageModel.setReceiver(userDetailsModel.getEmail());
+                        } else if (userDetailsModel.getTelegramUsername() != null) {
+                            messageModel.setMessagePlatform(MessageModel.MessagePlatform.TELEGRAM);
+                            messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                            messageModel.setReceiver(userDetailsModel.getTelegramUsername());
+                        }
+
+                        messageModel.setSubject("Notification from CRM");
+                        messageModel.setContent("Product " + product.getName() + " " + product.getBrand() + " has been delivered as " + product.getItemsLeft() + " items, check it out in your waiting list :3");
+
+                        messageProducer.produce(messageModel);
+                    }
+                }
+            }
+        };
+        scheduledExecutorService.schedule(mailingTask, 10, TimeUnit.SECONDS);
+    }
+
+    public void notifyManager(Product product) {
+        Runnable mailingTask = () -> {
+            List<UserDetailsModel> managers = userDetailsImplementationService.getUsersByRole(UserSecurityRole.ROLE_MANAGER);
+
+            if (managers != null && !managers.isEmpty()) {
+                for (UserDetailsModel userDetailsModel : managers) {
+                    if (userDetailsModel != null) {
+
+                        MessageModel messageModel = new MessageModel();
+
+                        messageModel.setSender("CRM");
+
+                        if (userDetailsModel.getEmail() != null) {
+                            messageModel.setMessagePlatform(MessageModel.MessagePlatform.EMAIL);
+                            messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                            messageModel.setReceiver(userDetailsModel.getEmail());
+                        } else if (userDetailsModel.getTelegramUsername() != null) {
+                            messageModel.setMessagePlatform(MessageModel.MessagePlatform.TELEGRAM);
+                            messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                            messageModel.setReceiver(userDetailsModel.getTelegramUsername());
+                        }
+
+                        messageModel.setSubject("Notification from CRM");
+                        messageModel.setContent("Product with product ID " + product.getProductId() + " has " + product.getItemsLeft() + " items left...");
+
+                        messageProducer.produce(messageModel);
+                    }
+                }
+            }
+        };
+        scheduledExecutorService.schedule(mailingTask, 10, TimeUnit.SECONDS);
     }
 }

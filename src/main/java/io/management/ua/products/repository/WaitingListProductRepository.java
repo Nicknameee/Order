@@ -18,4 +18,6 @@ public interface WaitingListProductRepository extends JpaRepository<WaitingListP
     @Transactional
     @Query("DELETE FROM WaitingListProduct w WHERE w.customerId = :customerId AND w.productId = :productId")
     int removeWaitingListEntry(@Param("customerId") Long customerId, @Param("productId") UUID productId);
+    @Query("SELECT w.customerId FROM WaitingListProduct w WHERE w.productId = :productId")
+    List<Long> getCustomerIdsByProductId(@Param("productId") UUID productId);
 }
