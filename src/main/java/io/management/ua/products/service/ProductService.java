@@ -9,7 +9,6 @@ import io.management.ua.category.repository.CategoryRepository;
 import io.management.ua.exceptions.ActionRestrictedException;
 import io.management.ua.exceptions.DefaultException;
 import io.management.ua.exceptions.NotFoundException;
-import io.management.ua.orders.entity.Order;
 import io.management.ua.producers.MessageProducer;
 import io.management.ua.products.attributes.Currency;
 import io.management.ua.products.dto.*;
@@ -167,7 +166,7 @@ public class ProductService {
                 case ASC -> query.orderBy(criteriaBuilder.asc(root.get(sortBy)));
             }
         } else {
-            query.orderBy(criteriaBuilder.desc(root.get(Order.Fields.creationDate)));
+            query.orderBy(criteriaBuilder.desc(root.get(Product.Fields.id)));
         }
 
         return entityManager.createQuery(query).setFirstResult((page - 1) * size).setMaxResults(size).getResultList();
