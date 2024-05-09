@@ -68,7 +68,7 @@ public class ProductController {
     }
 
     @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")
-    @GetMapping("/export")
+    @PostMapping("/export")
     public void exportProductData(@RequestBody(required = false) ProductFilter vendorFilter,
                                   @RequestParam(required = false) String filename,
                                   HttpServletResponse httpServletResponse) {
