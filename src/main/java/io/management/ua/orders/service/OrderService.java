@@ -326,6 +326,29 @@ public class OrderService {
                 order.setPaid(true);
             }
 
+            if (order.getStatus() == OrderStatus.ASSIGNED_TO_OPERATOR) {
+                List<UserDetailsModel> managers = userDetailsImplementationService.getUsersByRole(UserSecurityRole.ROLE_MANAGER);
+
+                if (managers != null && !managers.isEmpty()) {
+                    List<Long> uwu = managers.stream().map(UserDetailsModel::getId).toList();
+
+                    if (managers.size() == 1) {
+                        order.setProcessingOperatorId(managers.get(0).getId());
+                    } else {
+                        List<Long> managerIds = orderRepository.getListOfManagerIds(uwu);
+
+                        List<Long> availableManager = new ArrayList<>(uwu);
+                        availableManager.retainAll(managerIds);
+
+                        if (!availableManager.isEmpty()) {
+                            order.setProcessingOperatorId(availableManager.get(0));
+                        } else {
+                            order.setProcessingOperatorId(managerIds.get(0));
+                        }
+                    }
+                }
+            }
+
             order = save(order);
 
             try {
