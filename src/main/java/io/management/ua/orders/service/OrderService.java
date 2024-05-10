@@ -60,6 +60,9 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -78,7 +81,7 @@ public class OrderService {
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
     private final MessageProducer messageProducer;
-
+    private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(8);
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "ordersCache", key = "#result.id", condition = "#result.size() > 0")
     public List<Order> getOrders(OrderFilter orderFilter,
@@ -329,25 +332,30 @@ public class OrderService {
                 UserDetailsModel userDetailsModel = userDetailsImplementationService.getUserById(order.getCustomerId());
 
                 if (userDetailsModel != null) {
+                    Order finalOrder = order;
 
-                    MessageModel messageModel = new MessageModel();
+                    Runnable task = () -> {
+                        MessageModel messageModel = new MessageModel();
 
-                    messageModel.setSender("CRM");
+                        messageModel.setSender("CRM");
 
-                    if (userDetailsModel.getEmail() != null) {
-                        messageModel.setMessagePlatform(MessageModel.MessagePlatform.EMAIL);
-                        messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
-                        messageModel.setReceiver(userDetailsModel.getEmail());
-                    } else if (userDetailsModel.getTelegramUsername() != null) {
-                        messageModel.setMessagePlatform(MessageModel.MessagePlatform.TELEGRAM);
-                        messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
-                        messageModel.setReceiver(userDetailsModel.getTelegramUsername());
-                    }
+                        if (userDetailsModel.getEmail() != null) {
+                            messageModel.setMessagePlatform(MessageModel.MessagePlatform.EMAIL);
+                            messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                            messageModel.setReceiver(userDetailsModel.getEmail());
+                        } else if (userDetailsModel.getTelegramUsername() != null) {
+                            messageModel.setMessagePlatform(MessageModel.MessagePlatform.TELEGRAM);
+                            messageModel.setMessageType(MessageModel.MessageType.PLAIN_TEXT);
+                            messageModel.setReceiver(userDetailsModel.getTelegramUsername());
+                        }
 
-                    messageModel.setSubject("Notification from CRM");
-                    messageModel.setContent("Your order " + order.getNumber() + " was updated to status " + order.getStatus().name().replaceAll("_", " "));
+                        messageModel.setSubject("Notification from CRM");
+                        messageModel.setContent("Your order " + finalOrder.getNumber() + " was updated to status " + finalOrder.getStatus().name().replaceAll("_", " "));
 
-                    messageProducer.produce(messageModel);
+                        messageProducer.produce(messageModel);
+                    };
+
+                    executorService.schedule(task, 3, TimeUnit.SECONDS);
                 }
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
