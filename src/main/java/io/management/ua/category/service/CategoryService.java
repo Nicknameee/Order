@@ -111,9 +111,6 @@ public class CategoryService {
          if (updateCategoryDTO.getParentCategoryId() != null) {
              category.setParentCategoryId(updateCategoryDTO.getParentCategoryId());
          }
-         if (updateCategoryDTO.getEnabled() != null) {
-             category.setEnabled(updateCategoryDTO.getEnabled());
-         }
 
          return categoryRepository.save(category);
     }
