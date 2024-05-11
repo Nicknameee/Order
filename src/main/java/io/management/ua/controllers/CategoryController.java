@@ -23,8 +23,9 @@ public class CategoryController {
                                      @RequestParam(required = false) String sortBy,
                                      @RequestParam(required = false) String direction,
                                      @RequestParam(required = false) Boolean enabled,
+                                     @RequestParam(required = false) UUID categoryId,
                                      @RequestParam(required = false) UUID parentCategoryId) {
-        return Response.ok(categoryService.getAllCategories(page, size, sortBy, direction, enabled, parentCategoryId));
+        return Response.ok(categoryService.getAllCategories(page, size, sortBy, direction, enabled, categoryId, parentCategoryId));
     }
 
     @PreAuthorize("hasRole(T(io.management.ua.utility.models.UserSecurityRole).ROLE_MANAGER)")

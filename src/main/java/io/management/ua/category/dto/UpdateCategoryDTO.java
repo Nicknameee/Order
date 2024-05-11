@@ -13,4 +13,5 @@ public class UpdateCategoryDTO {
     @NotBlank(message = "Category name can not be blank")
     private String name;
     private UUID parentCategoryId;
+    private Boolean enabled;
 }

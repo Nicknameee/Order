@@ -46,6 +46,7 @@ public class CategoryService {
                                            @DefaultStringValue(string = "parentCategoryId") String sortBy,
                                            @DefaultStringValue(string = "DESC") String direction,
                                            Boolean enabled,
+                                           UUID categoryId,
                                            UUID parentCategoryId) {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Category> query = criteriaBuilder.createQuery(Category.class);
@@ -60,6 +61,10 @@ public class CategoryService {
             predicates.add(criteriaBuilder.equal(root.get(Category.Fields.parentCategoryId), parentCategoryId));
         } else {
             predicates.add(criteriaBuilder.isNull(root.get(Category.Fields.parentCategoryId)));
+        }
+
+        if (categoryId != null) {
+            predicates.add(criteriaBuilder.equal(root.get(Category.Fields.categoryId), categoryId));
         }
 
         query.where(predicates.toArray(new Predicate[0]));
@@ -100,8 +105,15 @@ public class CategoryService {
          Category category = categoryRepository.findByCategoryId(updateCategoryDTO.getCategoryId())
                  .orElseThrow(() -> new NotFoundException("Category with ID {} was not found", updateCategoryDTO.getCategoryId()));
 
-         category.setName(updateCategoryDTO.getName());
-         category.setParentCategoryId(updateCategoryDTO.getParentCategoryId());
+         if (updateCategoryDTO.getName() != null && !updateCategoryDTO.getName().isBlank()) {
+             category.setName(updateCategoryDTO.getName());
+         }
+         if (updateCategoryDTO.getParentCategoryId() != null) {
+             category.setParentCategoryId(updateCategoryDTO.getParentCategoryId());
+         }
+         if (updateCategoryDTO.getEnabled() != null) {
+             category.setEnabled(updateCategoryDTO.getEnabled());
+         }
 
          return categoryRepository.save(category);
     }

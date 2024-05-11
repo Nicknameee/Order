@@ -162,6 +162,7 @@ public class ProductService {
 
             if (productFilter.getIsPresent() != null) {
                 if (productFilter.getIsPresent()) {
+                    predicates.add(criteriaBuilder.isFalse(root.get(Product.Fields.blocked)));
                     predicates.add(criteriaBuilder.greaterThan(root.get(Product.Fields.itemsLeft), 0));
                 } else {
                     predicates.add(criteriaBuilder.le(root.get(Product.Fields.itemsLeft), 0));
