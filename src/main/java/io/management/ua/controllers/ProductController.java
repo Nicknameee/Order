@@ -112,7 +112,8 @@ public class ProductController {
     @GetMapping("/users/profit")
     public Response<?> getUserTopProfit(@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date from,
                                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date to,
-                                        @RequestParam(required = false) Integer page) {
-        return Response.ok(productService.getUserTopProfit(from, to, page));
+                                        @RequestParam(required = false) Integer page,
+                                        @RequestParam(required = false) String currency) {
+        return Response.ok(productService.getUserTopProfit(from, to, page, currency));
     }
 }

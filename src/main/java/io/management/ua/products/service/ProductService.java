@@ -540,8 +540,17 @@ public class ProductService {
         return dayToProfit;
     }
 
-    public List<AcquireLeads> getUserTopProfit(Date from, Date to, @DefaultNumberValue Integer page) {
-        String script = ResourceLoaderUtil.getResourceContent(Scripts.getUserTopProfitList);
+    public List<AcquireLeads> getUserTopProfit(Date from, Date to, @DefaultNumberValue Integer page, @DefaultStringValue(string = "USD") String currency) {
+        ApplicationCourseCurrencyU coefficient = currencyCourses.get("USD");
+        Double uniqueCoefficientU;
+        String script;
+        if (currency.equals("USD")) {
+            script = ResourceLoaderUtil.getResourceContent(Scripts.getUserTopProfitListUS);
+            uniqueCoefficientU = Double.valueOf(coefficient.getBuy());
+        } else {
+            script = ResourceLoaderUtil.getResourceContent(Scripts.getUserTopProfitListUA);
+            uniqueCoefficientU = Double.valueOf(coefficient.getSale());
+        }
 
         if (from == null) {
             from = new Date(0);
@@ -555,11 +564,11 @@ public class ProductService {
         jdbcTemplate.query(script, resultSet -> {
             AcquireLeads acquireLeads = new AcquireLeads();
             acquireLeads.setCustomerId(resultSet.getLong("customer_id"));
-            acquireLeads.setCurrency(Currency.valueOf(resultSet.getString("currency")));
+            acquireLeads.setCurrency(Currency.valueOf(currency));
             acquireLeads.setTotalProfitByCustomer(resultSet.getBigDecimal("sum"));
 
             list.add(acquireLeads);
-        }, from, to, 100, 100 * (page - 1));
+        }, uniqueCoefficientU, from, to, 100, 100 * (page - 1));
 
         for (AcquireLeads acquireLeads : list) {
             UserDetailsModel use = userDetailsImplementationService.getUserById(acquireLeads.getCustomerId());
