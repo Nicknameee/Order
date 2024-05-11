@@ -1,5 +1,6 @@
 package io.management.ua.products.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.management.resources.models.Image;
 import io.management.resources.service.ImageHostingService;
 import io.management.ua.amqp.messages.MessageModel;
@@ -17,11 +18,11 @@ import io.management.ua.products.entity.WaitingListProduct;
 import io.management.ua.products.mapper.ProductMapper;
 import io.management.ua.products.repository.ProductRepository;
 import io.management.ua.products.repository.WaitingListProductRepository;
-import io.management.ua.utility.ExportUtil;
-import io.management.ua.utility.ResourceLoaderUtil;
-import io.management.ua.utility.Scripts;
+import io.management.ua.utility.*;
 import io.management.ua.utility.api.enums.Folder;
+import io.management.ua.utility.models.NetworkResponse;
 import io.management.ua.utility.models.UserSecurityRole;
+import io.management.ua.utility.network.NetworkService;
 import io.management.users.models.UserDetailsModel;
 import io.management.users.service.UserDetailsImplementationService;
 import io.netty.util.internal.StringUtil;
@@ -46,6 +47,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Nullable;
+import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -60,6 +62,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -81,6 +84,26 @@ public class ProductService {
     private final UserDetailsImplementationService userDetailsImplementationService;
     private final MessageProducer messageProducer;
     private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(8);
+    private final Map<String, ApplicationCourseCurrencyU> currencyCourses = new HashMap<>();
+
+    private final NetworkService networkService;
+
+    @Scheduled(cron = "0 0 0 * * *")
+    @PostConstruct
+    public void initCurrencyCourses() {
+        try {
+            NetworkResponse networkResponse = networkService.performRequest("https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5");
+            List<ApplicationCourseCurrencyU> applicationCourseCurrencies = UtilManager.objectMapper()
+                    .readValue(networkResponse.getBody().toString(), new TypeReference<>() {
+                    });
+
+            for (ApplicationCourseCurrencyU applicationCourseCurrencyU : applicationCourseCurrencies) {
+                currencyCourses.put(applicationCourseCurrencyU.getCurrency(), applicationCourseCurrencyU);
+            }
+        } catch (URISyntaxException | IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public List<ProductLinkDTO> getProductLinksByNamePartial(String searchBy, @DefaultNumberValue Integer page) {
         List<ProductLinkDTO> productLinks = new ArrayList<>();
@@ -473,8 +496,19 @@ public class ProductService {
         return new ArrayList<>(list.values());
     }
 
-    public Map<Date, BigDecimal> getProfitStatistic(Date from, Date to) {
-        String script = ResourceLoaderUtil.getResourceContent(Scripts.getProfitByDayInRange);
+    public Map<Date, BigDecimal> getProfitStatistic(Date from, Date to, @DefaultStringValue(string = "USD") String currency) {
+        ApplicationCourseCurrencyU coefficient = currencyCourses.get("USD");
+        Double uniqueCoefficientU;
+        String script;
+        if (currency.equals("USD")) {
+            script = ResourceLoaderUtil.getResourceContent(Scripts.getProfitByDayInRangeUS);
+            uniqueCoefficientU = Double.valueOf(coefficient.getBuy());
+        } else {
+            script = ResourceLoaderUtil.getResourceContent(Scripts.getProfitByDayInRangeUA);
+            uniqueCoefficientU = Double.valueOf(coefficient.getSale());
+        }
+
+
 
         if (from == null) {
             from = new Date(0);
@@ -500,7 +534,7 @@ public class ProductService {
                     } catch (Exception ignored) {
 
                     }
-                }, from, to
+                }, uniqueCoefficientU, from, to
         );
 
         return dayToProfit;
@@ -516,7 +550,7 @@ public class ProductService {
             to = new Date();
         }
 
-        List<AcquireLeads> acquies = new ArrayList<>();
+        List<AcquireLeads> list = new ArrayList<>();
 
         jdbcTemplate.query(script, resultSet -> {
             AcquireLeads acquireLeads = new AcquireLeads();
@@ -524,10 +558,10 @@ public class ProductService {
             acquireLeads.setCurrency(Currency.valueOf(resultSet.getString("currency")));
             acquireLeads.setTotalProfitByCustomer(resultSet.getBigDecimal("sum"));
 
-            acquies.add(acquireLeads);
+            list.add(acquireLeads);
         }, from, to, 100, 100 * (page - 1));
 
-        for (AcquireLeads acquireLeads : acquies) {
+        for (AcquireLeads acquireLeads : list) {
             UserDetailsModel use = userDetailsImplementationService.getUserById(acquireLeads.getCustomerId());
 
             if (use != null) {
@@ -540,11 +574,7 @@ public class ProductService {
             }
         }
 
-        return acquies;
-    }
-
-    @Scheduled(fixedRate = 1, initialDelay = 0, timeUnit = TimeUnit.DAYS)
-    public void sendMarketingOfRecentProducts() {
+        return list;
     }
 
     public void notifyWaitingCustomers(Product product) {

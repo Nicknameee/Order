@@ -2,7 +2,7 @@ SELECT
     sale.time,
     SUM(
             CASE
-                WHEN product.currency = 'UAH' THEN sale.total_cost * (product.margin_rate - 1) / 39
+                WHEN product.currency = 'UAH' THEN sale.total_cost * (product.margin_rate - 1) / ?
                 ELSE sale.total_cost * (product.margin_rate - 1)
                 END
         ) as ovle

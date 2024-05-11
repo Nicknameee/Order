@@ -104,8 +104,9 @@ public class ProductController {
 
     @GetMapping("/statistic/profit")
     public Response<?> getProfitStatistic(@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date from,
-                                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date to) {
-        return Response.ok(productService.getProfitStatistic(from, to));
+                                          @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date to,
+                                          @RequestParam(required = false) String currency) {
+        return Response.ok(productService.getProfitStatistic(from, to, currency));
     }
 
     @GetMapping("/users/profit")
