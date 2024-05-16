@@ -144,10 +144,6 @@ public class ProductService {
                 predicates.add(criteriaBuilder.equal(root.get(Product.Fields.brand), productFilter.getBrand()));
             }
 
-            if (productFilter.getVendorId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get(Product.Fields.vendorId), productFilter.getVendorId()));
-            }
-
             if (productFilter.getProductIds() != null && !productFilter.getProductIds().isEmpty()) {
                 predicates.add(root.get(Product.Fields.productId).in(productFilter.getProductIds()));
             }
@@ -178,7 +174,12 @@ public class ProductService {
             }
 
             if (productFilter.getCategoryId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get(Product.Fields.categoryId), productFilter.getCategoryId()));
+                List<UUID> childCategories = new ArrayList<>();
+                jdbcTemplate.query(ResourceLoaderUtil.getResourceContent(Scripts.getSubCategoriesEnabledTree), (rs) -> {
+                            childCategories.add(rs.getObject("category_id", UUID.class));
+                        },
+                        productFilter.getCategoryId());
+                predicates.add(root.get(Product.Fields.categoryId).in( childCategories));
             }
         }
 
@@ -229,10 +230,6 @@ public class ProductService {
 
         if (!StringUtil.isNullOrEmpty(updateProductDTO.getDescription())) {
             product.setDescription(updateProductDTO.getDescription());
-        }
-
-        if (updateProductDTO.getVendorId() != null) {
-            product.setVendorId(updateProductDTO.getVendorId());
         }
 
         if (updateProductDTO.getCost() != null && updateProductDTO.getCost().compareTo(BigDecimal.ZERO) > 0) {
@@ -331,7 +328,6 @@ public class ProductService {
                 productSaleStatisticEntry.getProductId(),
                 productSaleStatisticEntry.getItemsSold(),
                 productSaleStatisticEntry.getTotalCost(),
-                productSaleStatisticEntry.getVendorId(),
                 productSaleStatisticEntry.getCategoryId(),
                 productSaleStatisticEntry.getProductId());
     }
@@ -509,8 +505,6 @@ public class ProductService {
             uniqueCoefficientU = Double.valueOf(coefficient.getSale());
         }
 
-
-
         if (from == null) {
             from = new Date(0);
         }
@@ -612,7 +606,7 @@ public class ProductService {
                         }
 
                         messageModel.setSubject("Notification from CRM");
-                        messageModel.setContent("Product " + product.getName() + " " + product.getBrand() + " has been delivered as " + product.getItemsLeft() + " items, check it out in your waiting list :3");
+                        messageModel.setContent("Product " + product.getName() + " " + product.getBrand() + " has been delivered as " + product.getItemsLeft() + " items, check it out in your waiting list \\:3");
 
                         messageProducer.produce(messageModel);
                     }
@@ -645,7 +639,7 @@ public class ProductService {
                         }
 
                         messageModel.setSubject("Notification from CRM");
-                        messageModel.setContent("Product with product ID " + product.getProductId() + " has " + product.getItemsLeft() + " items left...");
+                        messageModel.setContent("Product with product ID " + product.getProductId().toString().replaceAll("-", "\\\\-") + " has " + product.getItemsLeft() + " items left");
 
                         messageProducer.produce(messageModel);
                     }

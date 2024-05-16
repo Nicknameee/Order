@@ -10,4 +10,6 @@ public class Scripts {
     public static final String getProfitByDayInRangeUA = "classpath:/scripts/getProfitPerDayInRangeUA.sql";
     public static final String getUserTopProfitListUS = "classpath:/scripts/getUserTopProfitUS.sql";
     public static final String getUserTopProfitListUA = "classpath:/scripts/getUserTopProfitUA.sql";
+    public static final String getSubCategoriesTree = "classpath:/scripts/getSubCategoryTree.sql";
+    public static final String getSubCategoriesEnabledTree = "classpath:/scripts/getSubCategoryEnabledTree.sql";
 }

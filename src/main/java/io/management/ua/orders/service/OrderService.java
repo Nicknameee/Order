@@ -161,11 +161,6 @@ public class OrderService {
                 Join<Order, List<OrderedProduct>> joinProducts = root.join(Order.Fields.orderedProducts);
                 predicates.add(joinProducts.get(OrderedProduct.Fields.product).get(Product.Fields.name).in(orderFilter.getProductNames()));
             }
-
-            if (orderFilter.getVendorIds() != null && !orderFilter.getVendorIds().isEmpty()) {
-                Join<Order, List<Product>> joinProducts = root.join(Order.Fields.orderedProducts);
-                predicates.add(joinProducts.get(Product.Fields.name).in(orderFilter.getVendorIds()));
-            }
         }
 
         query.where(predicates.toArray(Predicate[]::new));
@@ -295,7 +290,6 @@ public class OrderService {
             entry.setProductId(orderedProduct.getFirst().getProductId());
             entry.setItemsSold(orderedProduct.getSecond());
             entry.setTotalCost(productCost);
-            entry.setVendorId(orderedProduct.getFirst().getVendorId());
             entry.setCategoryId(orderedProduct.getFirst().getCategoryId());
 
             productService.addProductSaleStatisticEntry(entry);
@@ -338,7 +332,7 @@ public class OrderService {
                         List<Long> managerIds = orderRepository.getListOfManagerIds(uwu);
 
                         List<Long> availableManager = new ArrayList<>(uwu);
-                        availableManager.retainAll(managerIds);
+                        availableManager.removeAll(managerIds);
 
                         if (!availableManager.isEmpty()) {
                             order.setProcessingOperatorId(availableManager.get(0));

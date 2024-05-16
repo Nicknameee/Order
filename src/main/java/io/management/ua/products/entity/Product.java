@@ -32,8 +32,6 @@ public class Product {
     private Map<String, String> parameters;
     @Column(name = "description")
     private String description;
-    @Column(name = "vendor_id")
-    private UUID vendorId;
     @Column(name = "product_id")
     private UUID productId;
     @Column(name = "cost")

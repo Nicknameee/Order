@@ -28,5 +28,4 @@ public class OrderFilter {
     private ZonedDateTime lastChangedOrderDateTo;
     private List<UUID> orderedProductIds;
     private List<String> productNames;
-    private List<UUID> vendorIds;
 }

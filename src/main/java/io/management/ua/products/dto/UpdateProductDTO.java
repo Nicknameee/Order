@@ -16,7 +16,6 @@ public class UpdateProductDTO {
     private String brand;
     private Map<String, String> parameters;
     private String description;
-    private UUID vendorId;
     private BigDecimal cost;
     private Currency currency;
     private Integer itemsLeft;

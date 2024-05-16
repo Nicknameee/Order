@@ -20,14 +20,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Transactional
     @Query("UPDATE Product p SET p.blocked = true, p.categoryId = null WHERE p.categoryId = :categoryId")
     void detachProductsFromCategory(@Param("categoryId") UUID categoryId);
-    @Modifying
-    @Transactional
-    @Query("UPDATE Product p SET p.blocked = true WHERE p.vendorId = :vendorId")
-    void blockVendorProducts(@Param("vendorId") UUID vendorId);
-    @Modifying
-    @Transactional
-    @Query("UPDATE Product p SET p.blocked = false WHERE p.vendorId = :vendorId")
-    void unblockVendorsProducts(@Param("vendorId") UUID vendorId);
     @Query("SELECT p FROM Product p WHERE LOWER(p.name) LIKE CONCAT('%', :searchBy, '%') ORDER BY " +
             "CASE WHEN p.name LIKE CONCAT(:searchBy, '%') THEN 1 WHEN p.name LIKE CONCAT('%', :searchBy, '%') THEN 2 ELSE 3 END")
     Page<Product> getProductsByNamePartial(@Param("searchBy") String searchBy, Pageable of);

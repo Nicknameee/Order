@@ -19,7 +19,6 @@ public class CreateProductDTO {
     private String brand;
     private Map<String, String> parameters;
     private String description;
-    private UUID vendorId;
     private BigDecimal cost;
     @NotNull(message = "Currency must be specified")
     private Currency currency;

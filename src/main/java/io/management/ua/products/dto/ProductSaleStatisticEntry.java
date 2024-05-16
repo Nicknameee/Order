@@ -10,6 +10,5 @@ public class ProductSaleStatisticEntry {
     private UUID productId;
     private Integer itemsSold;
     private BigDecimal totalCost;
-    private UUID vendorId;
     private UUID categoryId;
 }

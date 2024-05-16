@@ -9,11 +9,18 @@ import io.management.ua.category.dto.UpdateCategoryDTO;
 import io.management.ua.category.entity.Category;
 import io.management.ua.category.mapper.CategoryMapper;
 import io.management.ua.category.repository.CategoryRepository;
+import io.management.ua.exceptions.ActionRestrictedException;
 import io.management.ua.exceptions.NotFoundException;
 import io.management.ua.products.repository.ProductRepository;
+import io.management.ua.utility.ResourceLoaderUtil;
+import io.management.ua.utility.Scripts;
 import io.management.ua.utility.api.enums.Folder;
+import io.management.ua.utility.models.UserSecurityRole;
+import io.management.users.models.UserDetailsModel;
+import io.management.users.service.UserDetailsImplementationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,6 +47,7 @@ public class CategoryService {
     private final CategoryMapper categoryMapper;
     private final ImageHostingService imageHostingService;
     private final ProductRepository productRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public List<Category> getAllCategories(@DefaultNumberValue Integer page,
                                            @DefaultNumberValue(number = 100) Integer size,
@@ -60,7 +68,10 @@ public class CategoryService {
         if (parentCategoryId != null) {
             predicates.add(criteriaBuilder.equal(root.get(Category.Fields.parentCategoryId), parentCategoryId));
         } else {
-            predicates.add(criteriaBuilder.isNull(root.get(Category.Fields.parentCategoryId)));
+            UserDetailsModel userDetailsModel = UserDetailsImplementationService.getCurrentlyAuthenticatedUser();
+            if (userDetailsModel == null || userDetailsModel.getRole() == UserSecurityRole.ROLE_CUSTOMER) {
+                predicates.add(criteriaBuilder.isNull(root.get(Category.Fields.parentCategoryId)));
+            }
         }
 
         if (categoryId != null) {
@@ -117,15 +128,23 @@ public class CategoryService {
 
     @Transactional
     public Category switchCategoryState(UUID categoryId, boolean state) {
-         Category category = categoryRepository.findByCategoryId(categoryId).orElseThrow(() -> new NotFoundException("Category with ID {} was not found", categoryId));
-         category.setEnabled(state);
+        Category category = categoryRepository.findByCategoryId(categoryId).orElseThrow(() -> new NotFoundException("Category with ID {} was not found", categoryId));
 
-        List<Category> childCategories = categoryRepository.getCategoriesByParentCategoryId(category.getCategoryId());
-
-        if (!childCategories.isEmpty()) {
-            childCategories.forEach(childCategory -> childCategory.setEnabled(state));
-            categoryRepository.saveAll(childCategories);
+        if (category.getParentCategoryId() != null) {
+            Category parentCategory = categoryRepository.findByCategoryId(category.getParentCategoryId())
+                    .orElseThrow(() -> new NotFoundException("Category with ID {} was not found", categoryId));
+            if (parentCategory.getEnabled() != null && !parentCategory.getEnabled()) {
+                throw new ActionRestrictedException("Impossible to enable category, it's parent is disabled");
+            }
         }
+        category.setEnabled(state);
+
+        List<UUID> subIds = new ArrayList<>();
+        jdbcTemplate.query(ResourceLoaderUtil.getResourceContent(Scripts.getSubCategoriesTree), (rs) -> {
+            subIds.add(rs.getObject("category_id", UUID.class));
+            },
+                categoryId);
+        categoryRepository.switchStateOfCategoriesById(subIds, state);
 
         return categoryRepository.save(category);
     }

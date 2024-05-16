@@ -13,7 +13,6 @@ import java.util.UUID;
 public class ProductFilter {
     private String name;
     private String brand;
-    private UUID vendorId;
     private List<UUID> productIds;
     private Integer priceFrom;
     private Integer priceTo;

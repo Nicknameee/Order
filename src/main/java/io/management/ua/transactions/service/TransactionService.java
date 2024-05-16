@@ -174,6 +174,10 @@ public class TransactionService {
         Order order = orderRepository.findByNumber(num)
                 .orElseThrow(() -> new NotFoundException("Order with number {} was not found", transactionManualInitiativeModel.getNumber()));
 
+        if (order.getOrderedProductCost().doubleValue() > transactionManualInitiativeModel.getPaymentAmount().doubleValue()) {
+            throw new ActionRestrictedException("Payment amount can not be less than cost of the order");
+        }
+
         if (order.getTransactionId() != null) {
             throw new ActionRestrictedException("Order with number {} is already paid", num);
         }
